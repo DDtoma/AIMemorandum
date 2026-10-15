@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIMemorandum · 交互示意</title>
+<style>
+:root{color-scheme:light dark;--page:light-dark(#eeede8,#161817);--surface:light-dark(#fafaf7,#252825);--ink:light-dark(#242c27,#f0f2ec);--sub:light-dark(#667267,#b1b9ae);--line:light-dark(#dce0d7,#41483f);--accent:light-dark(#305a43,#aad7b4);--onaccent:light-dark(#fff,#17251b);--wash:light-dark(#e8eee4,#333f30);--alert:light-dark(#835622,#efc78e)}
+*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:3px}button{color:inherit;background:none;border:1px solid var(--line);border-radius:9px;padding:7px 12px}button:hover{background:var(--wash)}button.active,.primary{background:var(--accent);color:var(--onaccent);border-color:var(--accent)}button:disabled{opacity:.5;cursor:default}.quiet{border-color:transparent;color:var(--sub)}.muted{color:var(--sub)}.small{font-size:12px}.row{display:flex;align-items:center;justify-content:space-between;gap:10px}.wrap{flex-wrap:wrap}.page{max-width:1140px;margin:0 auto;padding:48px 32px}.eyebrow{font-size:12px;letter-spacing:2px;color:var(--accent)}h1{font-size:34px;line-height:1.25;margin:12px 0 16px;font-weight:600}h2{font-size:17px;margin:0 0 12px}p{margin:8px 0 16px}.intro{max-width:710px;color:var(--sub)}nav{display:flex;gap:8px;flex-wrap:wrap;margin:28px 0}.layout{display:grid;grid-template-columns:minmax(330px,460px) minmax(260px,1fr);gap:54px;align-items:start}.stage{border-radius:18px;background:var(--surface);box-shadow:0 18px 50px #00000015;overflow:hidden;border:1px solid var(--line)}.menubar{padding:8px 16px;border-bottom:1px solid var(--line);font-size:12px}.brand{font-weight:600}.badge{background:var(--wash);color:var(--accent);border-radius:6px;padding:1px 7px}.panel{padding:20px}.capture{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:22px}.capture textarea{width:100%;resize:vertical;min-height:70px;background:transparent;color:var(--ink);border:0;padding:0;outline-offset:6px}.capture .row{margin-top:8px}.inline-actions{display:flex;gap:4px}.section{margin:24px 0}.resume{border-left:3px solid var(--accent);padding:2px 0 2px 14px}.resume strong{display:block}.resume p{font-size:13px;margin:4px 0;color:var(--sub)}.item{display:flex;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);align-items:flex-start}.check{height:21px;width:21px;padding:0;border-radius:50%;flex:none;margin-top:2px}.itemtext{flex:1;min-width:0;overflow-wrap:anywhere}.reason{color:var(--alert);font-size:12px}.foot{border-top:1px solid var(--line);padding-top:12px;margin-top:18px;font-size:12px}.label{font-size:11px;letter-spacing:1px;color:var(--sub);margin-top:24px}.note{padding:8px 0 22px;border-bottom:1px solid var(--line)}.note h2{font-size:24px;line-height:1.4;margin:8px 0}.steps{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0}.steps span{background:var(--surface);border:1px solid var(--line);padding:6px 11px;border-radius:8px}.steps i{font-style:normal;color:var(--sub)}.narrative p{color:var(--sub);max-width:440px}.narrative strong{color:var(--ink)}.notice{font-size:12px;margin-top:30px;color:var(--sub)}.receipt{border:1px solid var(--line);padding:12px;border-radius:12px;background:var(--wash);margin:14px 0}.fakeimage{background:light-dark(#24302d,#14211c);color:#d1e3d9;border-radius:8px;padding:18px;font:12px/1.7 ui-monospace,SFMono-Regular,monospace;overflow-wrap:anywhere;position:relative;min-height:128px}.fakeimage .highlight{background:#4c856766;padding:2px 4px}.capture-area{position:relative;border:1px dashed var(--accent);padding:10px;margin:15px 0}.capture-area .fakeimage{opacity:.85}.field{display:block;margin:15px 0;font-size:13px}.field input,.field textarea{display:block;width:100%;margin-top:6px;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px}.chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{font-size:12px}.version{border:1px solid var(--line);padding:12px;border-radius:10px;margin:10px 0}.version p{font-size:13px;margin:8px 0}.status{min-height:24px;font-size:13px;color:var(--accent);margin:10px 0}.pill{font-size:11px;padding:3px 7px;background:var(--wash);border-radius:5px}.full{width:100%;margin-top:10px}[hidden]{display:none!important}@media(max-width:800px){.page{padding:28px 18px}.layout{grid-template-columns:1fr;gap:28px}.stage{max-width:460px;width:100%}.narrative{max-width:460px}h1{font-size:28px}}@media(max-width:380px){.page{padding:20px 10px}.panel{padding:14px}.capture .row{flex-wrap:wrap}.inline-actions{flex-wrap:wrap}button{padding:7px 9px}}
+</style>
+</head>
+<body>
+<main class="page">
+<div class="eyebrow">AIMEMORANDUM / 产品交互示意</div>
+<h1>随时记下，回来继续。</h1>
+<p class="intro">以菜单栏小面板完成日常记录。文字输入后保存，截图框选后直接留下；需要整理的内容稍后再看。</p>
+<nav aria-label="查看不同交互状态">
+<button class="active" data-view="home" aria-pressed="true">日常面板</button>
+<button data-view="capture" aria-pressed="false">截图记录</button>
+<button data-view="waiting" aria-pressed="false">等待跟进</button>
+<button data-view="conflict" aria-pressed="false">同步冲突</button>
+</nav>
+<div class="layout">
+<div class="stage">
+<div class="menubar row"><span class="brand">AIMemorandum</span><span>需要关注 <span class="badge" id="menu-count">3</span></span></div>
+<section class="panel" data-panel="home" aria-label="日常面板">
+<div class="capture">
+<label for="quick-text" class="small muted">记一件事，或粘贴一段文字</label>
+<textarea id="quick-text" placeholder="例如：确认服务器续费价格"></textarea>
+<div class="row"><div class="inline-actions"><button class="quiet" id="go-capture">截图</button><span class="small muted">Enter 随手记</span></div><button class="primary" id="save-note">保存</button></div>
+</div>
+<div class="resume"><span class="small muted">当前接着做</span><strong>修复接口超时</strong><p>上次：已排除数据库连接问题</p><p>下一步：检查请求重试与超时配置</p></div>
+<div class="section"><div class="row"><h2>需要关注 · <span id="attention-count">3</span></h2><span class="small muted">查看全部</span></div>
+<div id="attention-list">
+<div class="item"><button class="check" aria-label="完成：查看文档解析结果"></button><div class="itemtext">查看文档解析结果<div class="reason">跟进时间已到</div></div></div>
+<div class="item"><button class="check" aria-label="完成：确认服务器报价"></button><div class="itemtext">确认服务器报价<div class="reason">今天处理</div></div></div>
+<div class="item"><button class="check" aria-label="完成：提交修改后的说明"></button><div class="itemtext">提交修改后的说明<div class="reason">今天截止</div></div></div>
+</div></div>
+<div class="row"><span>待整理 <span id="capture-count">8</span></span><span class="small muted">含 2 张截图</span></div>
+<div id="new-captures" class="small"></div>
+<div class="row foot"><span>等待中 · 4</span><span class="muted">示意数据 · 未连接服务端</span></div>
+<div class="status" id="home-status" role="status" aria-live="polite"></div>
+</section>
+<section class="panel" data-panel="capture" hidden aria-label="截图记录">
+<div class="row"><h2>截图记录</h2><span class="pill">无标题也能保存</span></div>
+<p class="small muted">真实应用：⌃⌥S → 框选并松手。下面用示例图片演示收条，不读取屏幕。</p>
+<div class="capture-area" id="capture-area"><div class="fakeimage">request failed<br><span class="highlight">Error: upstream timeout</span><br>retry_count = 3<br>timeout_ms = 30000</div></div>
+<button class="primary full" id="simulate-capture">模拟框选结束</button>
+<div class="receipt" id="capture-receipt" hidden>
+<strong>已保存到本机</strong><div class="small muted">截图 · 10月13日 14:20 · 待同步</div>
+<div class="chips" style="margin-top:12px"><button id="caption-button">补一句</button><button id="convert-capture">转待办</button><button id="undo-capture">撤销</button></div>
+<label class="field" id="caption-field" hidden>补充说明<input id="caption-input" placeholder="例如：查一下这个超时"></label>
+<button id="save-caption" hidden>保存说明</button>
+</div>
+<div class="status" id="capture-status" role="status" aria-live="polite"></div>
+<div class="foot muted">进入待整理回顾，之后仍能找到这张图。</div>
+</section>
+<section class="panel" data-panel="waiting" hidden aria-label="等待跟进">
+<h2>检查这次代码修改是否解决问题</h2><span class="pill" id="waiting-state">进行中</span>
+<label class="field">在等什么？<input id="waiting-for" value="Agent 完成修改"></label>
+<div class="field">什么时候再看？</div>
+<div class="chips"><button class="active" data-review="今天 16:00 · Asia/Shanghai">今天 16:00</button><button data-review="明天 09:00 · Asia/Shanghai">明天 09:00</button><button data-review="进入日常回顾，不设置具体时刻">日常回顾</button></div>
+<p class="small muted" id="review-value">示例：2026-10-13 16:00 · Asia/Shanghai</p>
+<label class="field">收到结果后做什么？<input id="next-action" value="运行测试，确认后再关闭事项"></label>
+<label class="small"><input type="checkbox" id="notify"> 同时通知我</label>
+<button class="primary full" id="save-waiting">进入等待</button><button class="full" id="receive-result" hidden>收到结果，继续处理</button>
+<div class="status" id="waiting-status" role="status" aria-live="polite"></div>
+<div class="foot muted">收到结果后回到待处理，仍需你检查确认。</div>
+</section>
+<section class="panel" data-panel="conflict" hidden aria-label="同步冲突">
+<div class="row"><h2>有两个版本待处理</h2><span class="pill">内容均保留</span></div>
+<p class="small muted">同一事项在另一台设备上也有修改。请选择要继续使用的版本。</p>
+<div class="version"><strong>本机修改</strong><p>已排除连接池问题。下一步检查重试配置。</p><span class="small muted">保留本地原文和图片</span></div>
+<div class="version"><strong>服务端版本</strong><p>已调整超时时间。下一步运行回归测试。</p><span class="small muted">来自另一台设备</span></div>
+<div class="chips"><button data-resolve="本机内容将基于最新版本提交；原版本保留在历史中。">保留本地</button><button data-resolve="选择服务端版本；本机冲突副本仍可从历史查看。">使用服务端</button><button data-resolve="本机内容另存为新的随手记，不覆盖原事项。">另存副本</button></div>
+<div class="status" id="conflict-status" role="status" aria-live="polite"></div>
+</section>
+</div>
+<aside class="narrative">
+<div data-explain="home"><div class="label">文字记录 / 2 个操作 + 输入</div><div class="note"><h2>写完，按回车。</h2><div class="steps"><span>⌃⌥Space</span><i>→</i><span>输入</span><i>→</i><span>Enter</span></div><p>不必先决定项目、类型或日期。⌘Enter 可直接保存为待办。</p></div><div class="note"><h2>该看的事有明确位置。</h2><p>“需要关注”只计算当前到期或需要跟进的事项。待整理和等待中显示总量，不把所有未完成事项压成一个数字。</p></div></div>
+<div data-explain="capture" hidden><div class="label">截图记录 / 2 个操作</div><div class="note"><h2>框选结束，就记下了。</h2><div class="steps"><span>⌃⌥S</span><i>→</i><span>框选并松手</span></div><p>自动生成一条带图片的随手记。补说明、转待办都在保存后按需做；首次系统授权另算。</p></div><div class="note"><h2>原图先落盘。</h2><p>不等待上传、OCR 或识别结果。图片未上传时显示待同步，不提前显示“已同步”。</p></div></div>
+<div data-explain="waiting" hidden><div class="label">等待跟进 / 内联填写</div><div class="note"><h2>只明确两件事。</h2><p><strong>等什么，什么时候再看。</strong>下一步可以顺手留一句，也可以跳过。没有具体时间时进入日常回顾。</p></div><div class="note"><h2>结果回来，还要确认。</h2><p>“收到结果”回到待处理。“完成”需要独立的明确操作，不由 Agent 执行成功代替。</p></div></div>
+<div data-explain="conflict" hidden><div class="label">异常状态 / 保留两份</div><div class="note"><h2>看得见发生了什么。</h2><p>界面明确显示本机和服务端内容。处理一个冲突不会阻止其他事项继续同步。</p></div><div class="note"><h2>旧提醒不能重新打开已完成事项。</h2><p>所有动作都检查版本。保留本地也要基于最新版本提交；发生新冲突会再次提示。</p></div></div>
+<p class="notice">这是设计示意，不是 Mac 客户端。输入和按钮仅在本页面演示；刷新会恢复示例数据，不读取剪贴板、不截图、不连接服务端。</p>
+</aside>
+</div>
+</main>
+<script>
+(() => {
+  const byId = id => document.getElementById(id);
+  const buttons = [...document.querySelectorAll('[data-view]')];
+  function setView(view) {
+    buttons.forEach(b => {const selected=b.dataset.view===view;b.classList.toggle('active',selected);b.setAttribute('aria-pressed',String(selected));});
+    document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==view);
+    document.querySelectorAll('[data-explain]').forEach(p=>p.hidden=p.dataset.explain!==view);
+  }
+  buttons.forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+  byId('go-capture').addEventListener('click',()=>setView('capture'));
+  let captureCount=8, shotSaved=false;
+  function save(task=false){
+    const input=byId('quick-text');const value=input.value.trim();
+    if(!value){byId('home-status').textContent='先输入一句话。';return;}
+    const line=document.createElement('div');line.className='item';line.textContent=(task?'待办：':'随手记：')+value;
+    byId('new-captures').prepend(line);
+    if(!task){byId('capture-count').textContent=String(++captureCount);}
+    input.value='';byId('home-status').textContent=task?'示意：已保存为待办，进入日常回顾。':'示意：已保存到本机，待整理。';
+  }
+  let composing=false;
+  byId('quick-text').addEventListener('compositionstart',()=>composing=true);
+  byId('quick-text').addEventListener('compositionend',()=>composing=false);
+  byId('quick-text').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&!composing&&e.keyCode!==229){e.preventDefault();save(e.metaKey||e.ctrlKey);}});
+  byId('save-note').addEventListener('click',()=>save());
+  document.querySelectorAll('.check').forEach(b=>b.addEventListener('click',()=>{
+    b.closest('.item').remove();const count=document.querySelectorAll('.check').length;
+    byId('attention-count').textContent=String(count);byId('menu-count').textContent=String(count);
+    byId('home-status').textContent='示意：事项已完成。实际应用会提供撤销。';
+  }));
+  byId('simulate-capture').addEventListener('click',()=>{
+    if(!shotSaved){captureCount++;shotSaved=true;byId('capture-count').textContent=String(captureCount);}
+    byId('capture-receipt').hidden=false;byId('simulate-capture').disabled=true;
+    byId('capture-status').textContent='框选后的必需操作已经结束。';
+  });
+  byId('caption-button').addEventListener('click',()=>{byId('caption-field').hidden=false;byId('save-caption').hidden=false;byId('caption-input').focus();});
+  byId('save-caption').addEventListener('click',()=>{byId('capture-status').textContent=byId('caption-input').value.trim()?'示意：说明已保存，原图保留。':'说明为空，原图仍已保存。';});
+  byId('convert-capture').addEventListener('click',()=>{byId('capture-status').textContent='示意：已转为待办，未设置日期则进入日常回顾。';if(shotSaved){captureCount--;shotSaved=false;byId('capture-count').textContent=String(captureCount);}});
+  byId('undo-capture').addEventListener('click',()=>{if(shotSaved){captureCount--;shotSaved=false;byId('capture-count').textContent=String(captureCount);}byId('capture-receipt').hidden=true;byId('simulate-capture').disabled=false;byId('capture-status').textContent='示意：已撤销，本次截图进入回收站。';});
+  document.querySelectorAll('[data-review]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-review]').forEach(x=>x.classList.toggle('active',x===b));byId('review-value').textContent='示例：'+b.dataset.review;const noTime=b.dataset.review.includes('日常回顾');byId('notify').disabled=noTime;if(noTime)byId('notify').checked=false;}));
+  byId('save-waiting').addEventListener('click',()=>{if(!byId('waiting-for').value.trim()){byId('waiting-status').textContent='请留一句在等什么。';return;}byId('waiting-state').textContent='等待中';byId('receive-result').hidden=false;byId('waiting-status').textContent='示意：已进入等待；'+(byId('notify').checked?'按所选时间提醒。':'到期在面板显示。');});
+  byId('receive-result').addEventListener('click',()=>{byId('waiting-state').textContent='待处理';byId('waiting-status').textContent='下一步：'+(byId('next-action').value||'打开事项继续处理');byId('receive-result').hidden=true;});
+  document.querySelectorAll('[data-resolve]').forEach(b=>b.addEventListener('click',()=>byId('conflict-status').textContent='示意：'+b.dataset.resolve));
+})();
+</script>
+</body>
+</html>

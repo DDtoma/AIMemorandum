@@ -1,0 +1,30 @@
+.build/
+.swiftpm/
+.dev/
+dist/
+.DS_Store
+*.log
+
+# 本机运行数据与开发工具上下文
+/services/api/data/
+.workbuddy/
+__pycache__/
+*.py[cod]
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+
+# 本机配置和凭据；配置示例可以提交
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+*.keychain
+*.keychain-db

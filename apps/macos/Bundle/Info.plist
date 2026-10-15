@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.aimemorandum.app</string>
+    <key>CFBundleName</key>
+    <string>AIMemorandum</string>
+    <key>CFBundleDisplayName</key>
+    <string>AIMemorandum</string>
+    <key>CFBundleExecutable</key>
+    <string>AIMemorandum</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.1</string>
+    <key>CFBundleVersion</key>
+    <string>20261015.2</string>
+    <key>CFBundleIconFile</key>
+    <string>AIMemorandum.icns</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>仅在你按截图快捷键并框选区域时截取图片，保存为你的备忘记录。</string>
+</dict>
+</plist>
