@@ -10,7 +10,8 @@ dist/
 .workbuddy/
 .local/
 
-# Rust 探针构建产物
+# Rust 构建产物
+/apps/desktop/target/
 /apps/desktop/spike/target/
 __pycache__/
 *.py[cod]
