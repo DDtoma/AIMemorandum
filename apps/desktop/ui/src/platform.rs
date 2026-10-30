@@ -30,6 +30,8 @@ pub trait Screenshot {
     }
 
     fn capture(&self, region: CaptureRegion) -> Result<CapturedImage, UiError>;
+
+    fn cancel_capture(&self) {}
 }
 
 pub trait Clipboard {

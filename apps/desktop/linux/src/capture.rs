@@ -52,15 +52,24 @@ impl ScreenshotAdapter {
         Ok(image)
     }
 
+    pub fn cancel_capture(&self) {
+        let cached = self.cached.lock().ok().and_then(|mut cached| cached.take());
+        if let Some(cached) = cached {
+            let _ = std::fs::remove_file(cached.image.path);
+        }
+    }
+
     pub fn capture(&self, region: CaptureRegion) -> Result<CapturedImage, UiError> {
-        let (selected, full_path) = {
-            let mut cached = self
-                .cached
-                .lock()
-                .map_err(|_| UiError::Platform("截图缓存锁已中毒".to_owned()))?;
-            let current = cached.as_ref().ok_or_else(|| {
+        let current = self
+            .cached
+            .lock()
+            .map_err(|_| UiError::Platform("截图缓存锁已中毒".to_owned()))?
+            .take()
+            .ok_or_else(|| {
                 UiError::InvalidState("请先通过 BeginScreenshot 获取静态帧".to_owned())
             })?;
+        let full_path = current.image.path.clone();
+        let result = (|| {
             let monitor = current.frame.monitor();
             let cropped = current
                 .frame
@@ -72,16 +81,10 @@ impl ScreenshotAdapter {
                     height: region.height,
                 })
                 .map_err(|error| UiError::Platform(error.to_string()))?;
-            let selected = write_png(&cropped, &self.capture_dir)?;
-            let full_path = cached
-                .take()
-                .expect("cached frame was checked above")
-                .image
-                .path;
-            (selected, full_path)
-        };
+            write_png(&cropped, &self.capture_dir)
+        })();
         let _ = std::fs::remove_file(full_path);
-        Ok(selected)
+        result
     }
 }
 
@@ -92,6 +95,10 @@ impl Screenshot for ScreenshotAdapter {
 
     fn capture(&self, region: CaptureRegion) -> Result<CapturedImage, UiError> {
         ScreenshotAdapter::capture(self, region)
+    }
+
+    fn cancel_capture(&self) {
+        ScreenshotAdapter::cancel_capture(self);
     }
 }
 

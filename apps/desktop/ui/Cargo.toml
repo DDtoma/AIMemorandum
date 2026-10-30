@@ -10,7 +10,14 @@ aimemorandum-core = { path = "../core" }
 chrono = "0.4"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 sha2 = "0.10"
-slint = "1"
+slint = { version = "1", default-features = false, features = [
+  "std",
+  "backend-default",
+  "renderer-femtovg",
+  "renderer-software",
+  "accessibility",
+  "compat-1-2",
+] }
 thiserror = "2"
 
 [dev-dependencies]

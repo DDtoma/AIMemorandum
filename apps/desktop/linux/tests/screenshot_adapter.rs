@@ -67,3 +67,37 @@ fn selection_crops_the_one_cached_frame_and_stages_a_png() {
         })
         .is_err());
 }
+
+#[test]
+fn cancellation_removes_the_cached_full_frame() {
+    let directory = tempfile::tempdir().unwrap();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let provider = FakeProvider {
+        calls: calls.clone(),
+        frame: Some(StaticFrame::new(
+            RgbaImage::new(8, 8),
+            MonitorGeometry {
+                x: 0,
+                y: 0,
+                width: 4,
+                height: 4,
+                scale_factor: 2.0,
+            },
+        )),
+    };
+    let adapter = ScreenshotAdapter::new(Box::new(provider), directory.path().join("captures"));
+    let full = adapter.capture_full().unwrap();
+
+    adapter.cancel_capture();
+
+    assert!(!full.path.exists());
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert!(adapter
+        .capture(CaptureRegion {
+            x: 0.0,
+            y: 0.0,
+            width: 1.0,
+            height: 1.0,
+        })
+        .is_err());
+}

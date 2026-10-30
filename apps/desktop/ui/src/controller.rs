@@ -172,6 +172,7 @@ where
             }
             UiIntent::ScreenshotFinished { x, y } => self.finish_screenshot(x, y),
             UiIntent::ScreenshotCancelled => {
+                self.screenshot.cancel_capture();
                 self.view.screenshot = Default::default();
                 Ok(())
             }
@@ -453,6 +454,7 @@ where
             .zip(self.view.screenshot.start_y);
         self.view.screenshot = Default::default();
         let Some((start_x, start_y)) = start else {
+            self.screenshot.cancel_capture();
             return Ok(());
         };
         self.capture_region(normalized_region(start_x, start_y, x, y))
@@ -464,9 +466,11 @@ where
             || !region.width.is_finite()
             || !region.height.is_finite()
         {
+            self.screenshot.cancel_capture();
             return Err(UiError::InvalidState("截图坐标必须是有限数值".to_owned()));
         }
         if region.width < 8.0 || region.height < 8.0 {
+            self.screenshot.cancel_capture();
             return Ok(());
         }
         let image = self.screenshot.capture(region)?;

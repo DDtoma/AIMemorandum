@@ -107,7 +107,9 @@ mod linux {
     impl Drop for IpcService {
         fn drop(&mut self) {
             self.stop.store(true, Ordering::Release);
-            let _ = UnixStream::connect(&self.path);
+            if let Ok(stream) = UnixStream::connect(&self.path) {
+                let _ = stream.shutdown(std::net::Shutdown::Write);
+            }
             let _ = self.thread.join();
         }
     }
@@ -124,6 +126,9 @@ mod linux {
                     }
                     Ok(())
                 });
+                if worker_stop.load(Ordering::Acquire) {
+                    break;
+                }
                 if let Err(error) = result {
                     eprintln!("IPC 请求失败：{error}");
                 }
@@ -140,6 +145,29 @@ mod linux {
             CliAction::SaveClipboard => Some(ShellEvent::SaveClipboard),
             CliAction::ShowItems => Some(ShellEvent::ShowItems),
             CliAction::Background => None,
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::time::{Duration, Instant};
+
+        #[test]
+        fn ipc_service_shutdown_wakes_a_blocked_accept() {
+            let directory = tempfile::tempdir().unwrap();
+            let primary = PrimaryInstance::acquire(directory.path().join("primary.sock")).unwrap();
+            let (events, _receiver) = mpsc::channel();
+            let service = spawn_ipc(primary, events);
+            std::thread::sleep(Duration::from_millis(50));
+
+            let started = Instant::now();
+            drop(service);
+
+            assert!(
+                started.elapsed() < Duration::from_secs(1),
+                "IPC shutdown waited for a client read timeout"
+            );
         }
     }
 }

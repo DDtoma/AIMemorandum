@@ -482,6 +482,7 @@ struct FakeScreenshot {
     path: std::path::PathBuf,
     regions: std::sync::Arc<std::sync::Mutex<Vec<CaptureRegion>>>,
     full_frames: std::sync::Arc<std::sync::Mutex<usize>>,
+    cancellations: std::sync::Arc<std::sync::Mutex<usize>>,
 }
 
 impl Screenshot for FakeScreenshot {
@@ -503,6 +504,10 @@ impl Screenshot for FakeScreenshot {
             pixel_width: 2,
             pixel_height: 3,
         })
+    }
+
+    fn cancel_capture(&self) {
+        *self.cancellations.lock().unwrap() += 1;
     }
 }
 
@@ -563,10 +568,12 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
     write_png(&image_path);
     let regions = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let full_frames = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let cancellations = std::sync::Arc::new(std::sync::Mutex::new(0));
     let screenshot = FakeScreenshot {
         path: image_path,
         regions: regions.clone(),
         full_frames: full_frames.clone(),
+        cancellations: cancellations.clone(),
     };
     let store = LocalStore::open(directory.path()).unwrap();
     let mut ui = UiController::new(
@@ -628,6 +635,12 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
         1
     );
     assert!(ui.view().screenshot.start_x.is_none());
+    assert_eq!(*cancellations.lock().unwrap(), 1);
+
+    ui.dispatch(UiIntent::BeginScreenshot).unwrap();
+    ui.dispatch(UiIntent::ScreenshotCancelled).unwrap();
+    assert_eq!(*cancellations.lock().unwrap(), 2);
+    assert!(!ui.view().screenshot.active);
 }
 
 #[test]
