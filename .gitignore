@@ -8,6 +8,10 @@ dist/
 # 本机运行数据与开发工具上下文
 /services/api/data/
 .workbuddy/
+.local/
+
+# Rust 探针构建产物
+/apps/desktop/spike/target/
 __pycache__/
 *.py[cod]
 *.sqlite

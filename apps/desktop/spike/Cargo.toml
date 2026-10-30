@@ -1,0 +1,33 @@
+[package]
+name = "desktop-spike"
+version = "0.0.0"
+edition = "2021"
+license = "GPL-3.0-only"
+publish = false
+
+[dependencies]
+slint = "1"
+anyhow = "1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "0.11", optional = true }
+tokio = { version = "1", features = ["rt", "macros"], optional = true }
+
+[features]
+linux-portals = ["dep:ashpd", "dep:tokio"]
+
+[[bin]]
+name = "ime_probe"
+path = "src/bin/ime_probe.rs"
+
+[[bin]]
+name = "memory_probe"
+path = "src/bin/memory_probe.rs"
+
+[[bin]]
+name = "portal_probe"
+path = "src/bin/portal_probe.rs"
+required-features = ["linux-portals"]
+
+[build-dependencies]
+slint-build = "1"

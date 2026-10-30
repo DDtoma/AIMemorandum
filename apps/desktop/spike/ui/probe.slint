@@ -1,0 +1,70 @@
+import { LineEdit, TextEdit, VerticalBox, HorizontalBox, Button, ScrollView } from "std-widgets.slint";
+
+// 清单第 1 条：IME 组字探针。
+// 判定逻辑：组字期间的 Enter 是否触发 accepted 回调。
+export component ImeProbe inherits Window {
+    title: "IME 探针 · AM-002 Phase 0";
+    width: 520px; height: 340px;
+    in-out property <string> log: "等待输入…\n";
+    callback submitted(string);
+    VerticalBox {
+        padding: 16px; spacing: 10px;
+        Text {
+            wrap: word-wrap;
+            text: "① 切到中文输入法 ② 输入拼音（如 nihao）③ 组字未上屏时按 Enter —— 下方不应出现 [submit] ④ 候选上屏后再按 Enter —— 应出现一条 [submit]";
+        }
+        LineEdit {
+            placeholder-text: "在这里输入，观察下方日志";
+            accepted(text) => { root.submitted(text); self.text = ""; }
+        }
+        Rectangle {
+            background: #f5f5f5; border-radius: 6px;
+            VerticalBox {
+                padding: 8px;
+                Text { text: "提交日志"; font-size: 12px; }
+                TextEdit { read-only: true; text: root.log; }
+            }
+        }
+    }
+}
+
+// 清单第 2/5 条：内存基线与全屏框选层探针。
+// PROBE_FULLSCREEN=1 时为全屏无边框（验证 GNOME/KDE 框选层形态）。
+export component MemoryProbe inherits Window {
+    title: "内存探针 · AM-002 Phase 0";
+    width: 860px; height: 500px;
+    in property <[string]> rows: [];
+    no-frame: false;
+    HorizontalBox {
+        padding: 0px;
+        Rectangle {
+            width: 380px; background: #fafafa;
+            VerticalBox {
+                padding: 12px; spacing: 6px;
+                Text { text: "我的记录（模拟列表）"; font-weight: 700; }
+                for row in root.rows: Rectangle {
+                    height: 34px; background: #ffffff; border-radius: 4px;
+                    HorizontalBox {
+                        padding-left: 8px;
+                        Text { text: row; vertical-alignment: center; }
+                    }
+                }
+            }
+        }
+        Rectangle {
+            background: #ffffff;
+            VerticalBox {
+                padding: 16px; spacing: 8px;
+                Text { text: "详情面板（模拟）"; font-weight: 700; }
+                TextEdit { text: "这里模拟可编辑正文区域，用于抬高内存基线到接近真实应用的水平。"; }
+                HorizontalBox {
+                    spacing: 8px;
+                    Button { text: "完成"; }
+                    Button { text: "保存修改"; }
+                    Button { text: "+2小时提醒"; }
+                    Button { text: "删除"; }
+                }
+            }
+        }
+    }
+}
