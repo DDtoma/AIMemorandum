@@ -29,6 +29,8 @@ pub struct SlintShell {
     pub screenshot: ScreenshotOverlay,
     sender: crate::UiIntentSender,
     updates: std::sync::mpsc::Receiver<UiUpdate>,
+    last_view: Option<ViewModel>,
+    ticks: u64,
 }
 
 impl SlintShell {
@@ -146,26 +148,6 @@ impl SlintShell {
             }
         });
 
-        screenshot.on_started(wire!(&sender, |x, y| {
-            UiIntent::ScreenshotStarted {
-                x: x as f64,
-                y: y as f64,
-            }
-        }));
-        screenshot.on_moved(wire!(&sender, |x, y| {
-            UiIntent::ScreenshotMoved {
-                x: x as f64,
-                y: y as f64,
-            }
-        }));
-        screenshot.on_finished(wire!(&sender, |x, y| {
-            UiIntent::ScreenshotFinished {
-                x: x as f64,
-                y: y as f64,
-            }
-        }));
-        screenshot.on_cancelled(wire!(&sender, || UiIntent::ScreenshotCancelled));
-
         Ok(Self {
             capture,
             items,
@@ -174,6 +156,8 @@ impl SlintShell {
             screenshot,
             sender,
             updates,
+            last_view: None,
+            ticks: 0,
         })
     }
 
@@ -181,40 +165,44 @@ impl SlintShell {
         &self.sender
     }
 
-    pub fn run(self) -> Result<(), UiError> {
-        let Self {
-            capture,
-            items,
-            reminder,
-            settings,
-            screenshot,
-            sender,
-            updates,
-        } = self;
-        capture.show().map_err(platform_error)?;
+    pub fn run(mut self) -> Result<(), UiError> {
+        self.capture.show().map_err(platform_error)?;
         let timer = Timer::default();
-        let mut last_view: Option<ViewModel> = None;
-        let mut ticks = 0_u64;
         timer.start(TimerMode::Repeated, Duration::from_millis(100), move || {
-            let mut latest = None;
-            while let Ok(update) = updates.try_recv() {
-                latest = Some(update);
-            }
-            if let Some(update) = latest {
-                if last_view.as_ref() != Some(&update.view) || update.error.is_some() {
-                    last_view = Some(update.view.clone());
-                    apply_update(&capture, &items, &reminder, &settings, &screenshot, update);
-                }
-            }
-            ticks += 1;
-            if ticks.is_multiple_of(20) {
-                let _ = sender.send(UiIntent::Refresh);
-            }
-            if ticks.is_multiple_of(100) {
-                let _ = sender.send(UiIntent::CheckReminders);
-            }
+            let _ = self.poll();
         });
         slint::run_event_loop().map_err(platform_error)
+    }
+
+    /// Apply pending worker updates and periodic work from the Slint UI thread.
+    /// Returns the changed view so native shells can update tray projections.
+    pub fn poll(&mut self) -> Option<ViewModel> {
+        let mut latest = None;
+        while let Ok(update) = self.updates.try_recv() {
+            latest = Some(update);
+        }
+        let mut changed = None;
+        if let Some(update) = latest {
+            if self.last_view.as_ref() != Some(&update.view) || update.error.is_some() {
+                self.last_view = Some(update.view.clone());
+                changed = Some(update.view.clone());
+                apply_update(
+                    &self.capture,
+                    &self.items,
+                    &self.reminder,
+                    &self.settings,
+                    update,
+                );
+            }
+        }
+        self.ticks += 1;
+        if self.ticks.is_multiple_of(20) {
+            let _ = self.sender.send(UiIntent::Refresh);
+        }
+        if self.ticks.is_multiple_of(100) {
+            let _ = self.sender.send(UiIntent::CheckReminders);
+        }
+        changed
     }
 }
 
@@ -231,7 +219,6 @@ fn apply_update(
     items: &ItemsWindow,
     reminder: &ReminderPopup,
     settings: &Settings,
-    screenshot: &ScreenshotOverlay,
     update: UiUpdate,
 ) {
     let UiUpdate { view, error } = update;
@@ -307,10 +294,4 @@ fn apply_update(
     settings.set_autostart(view.settings.autostart);
     settings.set_message(view.settings.message.unwrap_or_default().into());
     settings.set_error(view.settings.error.unwrap_or_default().into());
-
-    if view.screenshot.start_x.is_some() {
-        let _ = screenshot.show();
-    } else {
-        let _ = screenshot.hide();
-    }
 }

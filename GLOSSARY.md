@@ -92,6 +92,9 @@ openapi 的 `SyncPage{sync_epoch, changes, next_cursor, has_more}` 为**未实�
 - **OCR 文字提取**（已实现）：本机 Vision 提取图片文字写入正文供检索（Screenshot.swift:86；LocalStore.swift:92）。AM-001 ADR-010「首版不做 OCR」为**已过时**决策。
 - **收条 / toast**（已实现）：保存后的小浮条，如「已存为待办 ✓」（CapturePanel.swift:101,219）。
 - **输入面板 / CapturePanel**、**记录窗口 / ItemsWindow**、**状态栏菜单 / status item**：UI 组件名与代码类型对应。
+- **托盘菜单 / tray menu**（已实现）：Windows 通知区域菜单，沿用「快速记录 / 截图记录 / 剪贴板速存 / 查看记录」四个规范功能名；代码：apps/desktop/windows/src/tray.rs。
+- **Frame Timer**（已实现）：桌面外壳的周期事件泵，处理界面更新、提醒、托盘、全局快捷键与单实例命令；代码：apps/desktop/ui/src/slint_shell.rs、apps/desktop/windows/src/main.rs。
+- **Slint**（已实现）：Windows/Linux 共享桌面界面的 UI 工具包；代码：apps/desktop/ui/ui/。
 
 ## 4. 删除与回收
 
@@ -124,4 +127,4 @@ openapi 的 `SyncPage{sync_epoch, changes, next_cursor, has_more}` 为**未实�
 
 ## 7. 范围外
 
-AM-002（Windows/Linux 移植）的新术语（Slint、Frame Timer、ScreenCast/RemoteDesktop portal、PortalHotkeys 等）暂不入表，见其方案文档 docs/proposals/AM-002-desktop-port/README.md；移植落地时再并入。
+AM-002 的 Linux 专有术语（ScreenCast/RemoteDesktop portal、PortalHotkeys 等）暂不入表，见其方案文档 docs/proposals/AM-002-desktop-port/README.md；Linux 落地时再并入。

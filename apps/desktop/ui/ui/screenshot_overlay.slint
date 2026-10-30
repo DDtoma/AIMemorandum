@@ -1,50 +1,24 @@
 export component ScreenshotOverlay inherits Window {
     title: "选择截图区域";
     no-frame: true;
+    always-on-top: true;
     background: transparent;
     width: 1280px;
     height: 720px;
-    property <float> start-x: 0;
-    property <float> start-y: 0;
-    property <float> current-x: 0;
-    property <float> current-y: 0;
-    property <bool> selecting: false;
-    callback started(float, float);
-    callback moved(float, float);
-    callback finished(float, float);
+    // Native adapters own the global physical-pixel drag model and project it here.
+    in-out property <bool> selecting: false;
+    in-out property <float> selection-x: 0;
+    in-out property <float> selection-y: 0;
+    in-out property <float> selection-width: 0;
+    in-out property <float> selection-height: 0;
     callback cancelled();
     Rectangle {
         background: #00000066;
-        TouchArea {
-            pointer-event(event) => {
-                if (event.kind == PointerEventKind.down) {
-                    root.start-x = self.mouse-x / 1px;
-                    root.start-y = self.mouse-y / 1px;
-                    root.current-x = root.start-x;
-                    root.current-y = root.start-y;
-                    root.selecting = true;
-                    root.started(root.start-x, root.start-y);
-                }
-                if (event.kind == PointerEventKind.up && root.selecting) {
-                    root.current-x = self.mouse-x / 1px;
-                    root.current-y = self.mouse-y / 1px;
-                    root.selecting = false;
-                    root.finished(root.current-x, root.current-y);
-                }
-            }
-            moved => {
-                if (root.selecting) {
-                    root.current-x = self.mouse-x / 1px;
-                    root.current-y = self.mouse-y / 1px;
-                    root.moved(root.current-x, root.current-y);
-                }
-            }
-        }
         if root.selecting: Rectangle {
-            x: min(root.start-x, root.current-x) * 1px;
-            y: min(root.start-y, root.current-y) * 1px;
-            width: abs(root.current-x - root.start-x) * 1px;
-            height: abs(root.current-y - root.start-y) * 1px;
+            x: root.selection-x * 1px;
+            y: root.selection-y * 1px;
+            width: root.selection-width * 1px;
+            height: root.selection-height * 1px;
             background: #ffffff22;
             border-color: #ffffff;
             border-width: 2px;

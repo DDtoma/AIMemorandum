@@ -33,6 +33,10 @@ pub trait Clipboard {
     fn read_image(&self) -> Result<Option<CapturedImage>, UiError>;
 }
 
+pub trait TextRecognizer: Send {
+    fn recognize(&self, path: &Path) -> Result<String, UiError>;
+}
+
 pub trait Enrollment {
     fn enroll(
         &self,

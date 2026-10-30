@@ -1,10 +1,11 @@
 use crate::{
     AttachmentModel, CaptureRegion, Clipboard, Clock, DesktopShell, Enrollment, ItemDetailModel,
-    ItemFilter, ItemRowModel, ReminderPopupModel, Screenshot, TrayEntry, UiError, UiIntent,
-    ViewModel,
+    ItemFilter, ItemRowModel, ReminderPopupModel, Screenshot, TextRecognizer, TrayEntry, UiError,
+    UiIntent, ViewModel,
 };
 use aimemorandum_core::{
     Attachment, InputPolicy, Item, ItemKind, LocalStore, ReminderScheduler, StoreError, TaskState,
+    MAX_BODY_MD_BYTES,
 };
 use chrono::Duration;
 use image::ImageReader;
@@ -23,6 +24,7 @@ pub struct UiController<S, C, E, D, K> {
     #[allow(dead_code)]
     shell: D,
     clock: K,
+    text_recognizer: Option<Box<dyn TextRecognizer>>,
     view: ViewModel,
 }
 
@@ -49,11 +51,17 @@ where
             enrollment,
             shell,
             clock,
+            text_recognizer: None,
             view: ViewModel::default(),
         };
         controller.load_settings()?;
         controller.refresh_items()?;
         Ok(controller)
+    }
+
+    pub fn with_text_recognizer(mut self, recognizer: impl TextRecognizer + 'static) -> Self {
+        self.text_recognizer = Some(Box::new(recognizer));
+        self
     }
 
     pub fn view(&self) -> &ViewModel {
@@ -189,6 +197,8 @@ where
         sources: Vec<ImageSource>,
         clear_draft: bool,
     ) -> Result<(), UiError> {
+        let (recognized, ocr_failed) = self.recognize_sources(&sources);
+        let text = append_recognized_text(text, &recognized);
         let attachments: Vec<Attachment> = sources
             .iter()
             .map(|source| source.attachment.clone())
@@ -219,7 +229,14 @@ where
                     self.view.capture.draft.clear();
                 }
                 self.view.capture.error = None;
-                self.view.capture.message = Some("已保存".to_owned());
+                self.view.capture.message = Some(
+                    if ocr_failed {
+                        "已保存（OCR 未完成）"
+                    } else {
+                        "已保存"
+                    }
+                    .to_owned(),
+                );
                 self.refresh_items()
             }
             Err(error) => {
@@ -227,6 +244,29 @@ where
                 Err(error)
             }
         }
+    }
+
+    fn recognize_sources(&self, sources: &[ImageSource]) -> (String, bool) {
+        let Some(recognizer) = &self.text_recognizer else {
+            return (String::new(), false);
+        };
+        let mut recognized = Vec::new();
+        let mut failed = false;
+        for source in sources {
+            match recognizer.recognize(&source.path) {
+                Ok(text) if !text.trim().is_empty() => recognized.push(text),
+                Ok(_) => {}
+                Err(_) => failed = true,
+            }
+        }
+        (
+            recognized.join(
+                "
+
+",
+            ),
+            failed,
+        )
     }
 
     fn load_settings(&mut self) -> Result<(), UiError> {
@@ -583,6 +623,30 @@ where
             }
         }
     }
+}
+
+fn append_recognized_text(mut text: String, recognized: &str) -> String {
+    let recognized = recognized.trim();
+    if recognized.is_empty() {
+        return text;
+    }
+    let separator = if text.is_empty() {
+        ""
+    } else {
+        "
+
+"
+    };
+    let available = MAX_BODY_MD_BYTES.saturating_sub(text.len() + separator.len());
+    let mut end = recognized.len().min(available);
+    while !recognized.is_char_boundary(end) {
+        end -= 1;
+    }
+    if end > 0 {
+        text.push_str(separator);
+        text.push_str(&recognized[..end]);
+    }
+    text
 }
 
 fn is_open_task(item: &Item) -> bool {

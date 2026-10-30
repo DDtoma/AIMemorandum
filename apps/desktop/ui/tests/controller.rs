@@ -1,7 +1,7 @@
 use aimemorandum_core::{Attachment, Item, ItemKind, LocalStore, SubmitKey, TaskState};
 use aimemorandum_ui::{
     CaptureRegion, CapturedImage, Clipboard, Clock, DesktopShell, DeviceCredentials, Enrollment,
-    ItemFilter, Screenshot, UiController, UiError, UiIntent,
+    ItemFilter, Screenshot, TextRecognizer, UiController, UiError, UiIntent,
 };
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use std::path::Path;
@@ -515,6 +515,67 @@ fn write_png(path: &Path) {
     image::RgbImage::new(2, 3).save(path).unwrap();
 }
 
+struct FakeTextRecognizer {
+    text: Option<String>,
+}
+
+impl TextRecognizer for FakeTextRecognizer {
+    fn recognize(&self, _path: &Path) -> Result<String, UiError> {
+        self.text
+            .clone()
+            .ok_or_else(|| UiError::Platform("OCR unavailable".to_owned()))
+    }
+}
+
+#[test]
+fn ocr_text_is_added_to_drops_and_ocr_failure_preserves_the_original_capture() {
+    let directory = tempfile::tempdir().unwrap();
+    let image_path = directory.path().join("drop.PNG");
+    write_png(&image_path);
+    let original = std::fs::read(&image_path).unwrap();
+    let mut ui = controller(directory.path()).with_text_recognizer(FakeTextRecognizer {
+        text: Some("识别文字".to_owned()),
+    });
+    ui.dispatch(UiIntent::CaptureDraftChanged("配图记录".to_owned()))
+        .unwrap();
+    ui.dispatch(UiIntent::DropImages(vec![image_path.clone()]))
+        .unwrap();
+
+    let store = LocalStore::open(directory.path()).unwrap();
+    let items = store.items().unwrap();
+    assert_eq!(
+        items[0].body_md,
+        "配图记录
+
+识别文字"
+    );
+    assert_eq!(std::fs::read(&image_path).unwrap(), original);
+    assert!(store.attachment_path(&items[0].attachments[0]).is_file());
+
+    let failure_directory = tempfile::tempdir().unwrap();
+    let failure_image = failure_directory.path().join("drop.png");
+    write_png(&failure_image);
+    let mut ui = controller(failure_directory.path())
+        .with_text_recognizer(FakeTextRecognizer { text: None });
+    ui.dispatch(UiIntent::DropImages(vec![failure_image.clone()]))
+        .unwrap();
+    let items = LocalStore::open(failure_directory.path())
+        .unwrap()
+        .items()
+        .unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].body_md, "");
+    assert_eq!(items[0].attachments.len(), 1);
+    assert_eq!(std::fs::read(failure_image).unwrap(), original);
+    assert!(ui
+        .view()
+        .capture
+        .message
+        .as_deref()
+        .unwrap()
+        .contains("OCR"));
+}
+
 #[test]
 fn dropped_image_saves_immediately_and_invalid_image_retains_draft() {
     let directory = tempfile::tempdir().unwrap();
@@ -611,6 +672,69 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
         1
     );
     assert!(ui.view().screenshot.start_x.is_none());
+}
+
+#[test]
+fn overlong_multibyte_ocr_is_bounded_without_losing_the_attachment() {
+    let directory = tempfile::tempdir().unwrap();
+    let image_path = directory.path().join("screen.png");
+    write_png(&image_path);
+    let original = std::fs::read(&image_path).unwrap();
+    let mut ui = UiController::new(
+        LocalStore::open(directory.path()).unwrap(),
+        NoScreenshot,
+        NoClipboard,
+        NoEnrollment,
+        NoShell,
+        FixedClock(now()),
+    )
+    .unwrap()
+    .with_text_recognizer(FakeTextRecognizer {
+        text: Some("汉".repeat(100_000)),
+    });
+
+    ui.dispatch(UiIntent::CaptureDraftChanged("草稿".to_owned()))
+        .unwrap();
+    ui.dispatch(UiIntent::DropImages(vec![image_path.clone()]))
+        .unwrap();
+    let items = LocalStore::open(directory.path()).unwrap().items().unwrap();
+    assert_eq!(items.len(), 1);
+    assert!(items[0].body_md.starts_with("草稿\n\n汉"));
+    assert!(items[0].body_md.len() <= 256 * 1024);
+    assert_eq!(items[0].attachments.len(), 1);
+    assert_eq!(std::fs::read(image_path).unwrap(), original);
+}
+
+#[test]
+fn screenshot_ocr_populates_body_and_keeps_generated_title() {
+    let directory = tempfile::tempdir().unwrap();
+    let image_path = directory.path().join("screen.png");
+    write_png(&image_path);
+    let screenshot = FakeScreenshot {
+        path: image_path,
+        regions: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+    };
+    let mut ui = UiController::new(
+        LocalStore::open(directory.path()).unwrap(),
+        screenshot,
+        NoClipboard,
+        NoEnrollment,
+        NoShell,
+        FixedClock(now()),
+    )
+    .unwrap()
+    .with_text_recognizer(FakeTextRecognizer {
+        text: Some("发票金额 128.50 元".to_owned()),
+    });
+
+    ui.dispatch(UiIntent::ScreenshotStarted { x: 0.0, y: 0.0 })
+        .unwrap();
+    ui.dispatch(UiIntent::ScreenshotFinished { x: 20.0, y: 20.0 })
+        .unwrap();
+    let items = LocalStore::open(directory.path()).unwrap().items().unwrap();
+    assert_eq!(items[0].body_md, "发票金额 128.50 元");
+    assert!(items[0].title.starts_with("截图 · "));
+    assert_eq!(items[0].title_origin, "generated");
 }
 
 #[test]
