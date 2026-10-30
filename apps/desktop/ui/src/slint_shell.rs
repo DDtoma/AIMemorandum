@@ -2,6 +2,7 @@ use crate::{ItemFilter, UiError, UiIntent, UiUpdate, UiWorker, ViewModel};
 use aimemorandum_core::SubmitKey;
 use slint::{ComponentHandle, Model, ModelRc, Timer, TimerMode, VecModel};
 use std::path::PathBuf;
+use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
 slint::include_modules!();
@@ -19,6 +20,18 @@ macro_rules! wire {
             let _ = sender.send($body);
         }
     }};
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ShellEvent {
+    ShowCapture,
+    ToggleCapture,
+    Screenshot,
+    SaveClipboard,
+    ShowItems,
+    ShowSettings,
+    CompleteItem(String),
+    Quit,
 }
 
 pub struct SlintShell {
@@ -182,6 +195,24 @@ impl SlintShell {
     }
 
     pub fn run(self) -> Result<(), UiError> {
+        self.run_inner(None, true, Box::new(|_| {}))
+    }
+
+    pub fn run_with_events(
+        self,
+        events: Receiver<ShellEvent>,
+        show_capture: bool,
+        observer: impl FnMut(&ViewModel) + 'static,
+    ) -> Result<(), UiError> {
+        self.run_inner(Some(events), show_capture, Box::new(observer))
+    }
+
+    fn run_inner(
+        self,
+        mut events: Option<Receiver<ShellEvent>>,
+        show_capture: bool,
+        mut observer: Box<dyn FnMut(&ViewModel)>,
+    ) -> Result<(), UiError> {
         let Self {
             capture,
             items,
@@ -191,11 +222,56 @@ impl SlintShell {
             sender,
             updates,
         } = self;
-        capture.show().map_err(platform_error)?;
+        if show_capture {
+            capture.show().map_err(platform_error)?;
+        }
         let timer = Timer::default();
         let mut last_view: Option<ViewModel> = None;
         let mut ticks = 0_u64;
         timer.start(TimerMode::Repeated, Duration::from_millis(100), move || {
+            if let Some(events) = events.as_mut() {
+                while let Ok(event) = events.try_recv() {
+                    match event {
+                        ShellEvent::ShowCapture => {
+                            let _ = capture.show();
+                        }
+                        ShellEvent::ToggleCapture => {
+                            if capture.window().is_visible() {
+                                let _ = capture.hide();
+                            } else {
+                                let _ = capture.show();
+                            }
+                        }
+                        ShellEvent::Screenshot => {
+                            let _ = capture.hide();
+                            let _ = items.hide();
+                            let _ = reminder.hide();
+                            let _ = settings.hide();
+                            let screenshot_sender = sender.clone();
+                            Timer::single_shot(Duration::from_millis(150), move || {
+                                let _ = screenshot_sender.send(UiIntent::BeginScreenshot);
+                            });
+                        }
+                        ShellEvent::SaveClipboard => {
+                            let _ = capture.show();
+                            let _ = sender.send(UiIntent::CaptureClipboard);
+                        }
+                        ShellEvent::ShowItems => {
+                            let _ = items.show();
+                            let _ = sender.send(UiIntent::Refresh);
+                        }
+                        ShellEvent::ShowSettings => {
+                            let _ = settings.show();
+                        }
+                        ShellEvent::CompleteItem(id) => {
+                            let _ = sender.send(UiIntent::CompleteItem(id));
+                        }
+                        ShellEvent::Quit => {
+                            let _ = slint::quit_event_loop();
+                        }
+                    }
+                }
+            }
             let mut latest = None;
             while let Ok(update) = updates.try_recv() {
                 latest = Some(update);
@@ -203,6 +279,7 @@ impl SlintShell {
             if let Some(update) = latest {
                 if last_view.as_ref() != Some(&update.view) || update.error.is_some() {
                     last_view = Some(update.view.clone());
+                    observer(&update.view);
                     apply_update(&capture, &items, &reminder, &settings, &screenshot, update);
                 }
             }
@@ -235,6 +312,7 @@ fn apply_update(
     update: UiUpdate,
 ) {
     let UiUpdate { view, error } = update;
+    let screenshot_active = view.screenshot.active || view.screenshot.start_x.is_some();
     capture.set_draft(view.capture.draft.into());
     capture.set_message(view.capture.message.unwrap_or_default().into());
     capture.set_error(view.capture.error.unwrap_or_default().into());
@@ -293,7 +371,7 @@ fn apply_update(
     }
     items.set_error(error.or(view.items.error).unwrap_or_default().into());
 
-    if let Some(popup) = view.reminder {
+    if let Some(popup) = view.reminder.filter(|_| !screenshot_active) {
         reminder.set_item_title(popup.title.into());
         let _ = reminder.show();
     } else {
@@ -308,7 +386,16 @@ fn apply_update(
     settings.set_message(view.settings.message.unwrap_or_default().into());
     settings.set_error(view.settings.error.unwrap_or_default().into());
 
-    if view.screenshot.start_x.is_some() {
+    if let Some(path) = view.screenshot.background {
+        match slint::Image::load_from_path(&path) {
+            Ok(image) => screenshot.set_frame(image),
+            Err(error) => eprintln!("无法加载截图静态帧 {}: {error}", path.display()),
+        }
+    } else {
+        screenshot.set_frame(slint::Image::default());
+    }
+    if screenshot_active {
+        screenshot.window().set_fullscreen(true);
         let _ = screenshot.show();
     } else {
         let _ = screenshot.hide();

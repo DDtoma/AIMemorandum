@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ItemFilter {
     #[default]
@@ -103,6 +105,8 @@ pub struct TrayModel {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ScreenshotOverlayModel {
+    pub active: bool,
+    pub background: Option<PathBuf>,
     pub start_x: Option<f64>,
     pub start_y: Option<f64>,
     pub current_x: f64,

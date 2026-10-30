@@ -155,6 +155,7 @@ where
                 item_id,
                 attachment_id,
             } => self.open_attachment(&item_id, &attachment_id),
+            UiIntent::BeginScreenshot => self.begin_screenshot(),
             UiIntent::ScreenshotStarted { x, y } => {
                 self.view.screenshot.start_x = Some(x);
                 self.view.screenshot.start_y = Some(y);
@@ -435,6 +436,13 @@ where
         let error = UiError::InvalidState("剪贴板没有可保存的文本或图片".to_owned());
         self.view.capture.error = Some(error.to_string());
         Err(error)
+    }
+
+    fn begin_screenshot(&mut self) -> Result<(), UiError> {
+        let image = self.screenshot.capture_full()?;
+        self.view.screenshot.active = true;
+        self.view.screenshot.background = Some(image.path);
+        Ok(())
     }
 
     fn finish_screenshot(&mut self, x: f64, y: f64) -> Result<(), UiError> {

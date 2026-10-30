@@ -25,6 +25,10 @@ pub struct DeviceCredentials {
 }
 
 pub trait Screenshot {
+    fn capture_full(&self) -> Result<CapturedImage, UiError> {
+        Err(UiError::Platform("当前平台尚未实现静态全屏截图".to_owned()))
+    }
+
     fn capture(&self, region: CaptureRegion) -> Result<CapturedImage, UiError>;
 }
 

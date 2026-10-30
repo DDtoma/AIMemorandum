@@ -9,10 +9,17 @@ export component ScreenshotOverlay inherits Window {
     property <float> current-x: 0;
     property <float> current-y: 0;
     property <bool> selecting: false;
+    in property <image> frame;
     callback started(float, float);
     callback moved(float, float);
     callback finished(float, float);
     callback cancelled();
+    Image {
+        width: 100%;
+        height: 100%;
+        source: root.frame;
+        image-fit: fill;
+    }
     Rectangle {
         background: #00000066;
         TouchArea {

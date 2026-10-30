@@ -18,5 +18,5 @@ pub use worker::{Controller, UiIntentSender, UiUpdate, UiWorker};
 
 pub use slint_shell::{
     run_slint, AttachmentData, CapturePanel, ItemRowData, ItemsWindow, ReminderPopup,
-    ScreenshotOverlay, Settings, SlintShell,
+    ScreenshotOverlay, Settings, ShellEvent, SlintShell,
 };

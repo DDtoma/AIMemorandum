@@ -38,6 +38,7 @@ pub enum UiIntent {
     CompleteReminder,
     SnoozeReminder,
     DismissReminder,
+    BeginScreenshot,
     ScreenshotStarted {
         x: f64,
         y: f64,

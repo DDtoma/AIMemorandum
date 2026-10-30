@@ -481,9 +481,20 @@ fn failed_enrollment_does_not_mark_device_registered() {
 struct FakeScreenshot {
     path: std::path::PathBuf,
     regions: std::sync::Arc<std::sync::Mutex<Vec<CaptureRegion>>>,
+    full_frames: std::sync::Arc<std::sync::Mutex<usize>>,
 }
 
 impl Screenshot for FakeScreenshot {
+    fn capture_full(&self) -> Result<CapturedImage, UiError> {
+        *self.full_frames.lock().unwrap() += 1;
+        Ok(CapturedImage {
+            path: self.path.clone(),
+            mime: "image/png".to_owned(),
+            pixel_width: 100,
+            pixel_height: 100,
+        })
+    }
+
     fn capture(&self, region: CaptureRegion) -> Result<CapturedImage, UiError> {
         self.regions.lock().unwrap().push(region);
         Ok(CapturedImage {
@@ -551,9 +562,11 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
     let image_path = directory.path().join("screen.png");
     write_png(&image_path);
     let regions = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let full_frames = std::sync::Arc::new(std::sync::Mutex::new(0));
     let screenshot = FakeScreenshot {
         path: image_path,
         regions: regions.clone(),
+        full_frames: full_frames.clone(),
     };
     let store = LocalStore::open(directory.path()).unwrap();
     let mut ui = UiController::new(
@@ -568,6 +581,10 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
 
     ui.dispatch(UiIntent::CaptureDraftChanged("未发送草稿".to_owned()))
         .unwrap();
+    ui.dispatch(UiIntent::BeginScreenshot).unwrap();
+    assert!(ui.view().screenshot.active);
+    assert!(ui.view().screenshot.background.is_some());
+    assert_eq!(*full_frames.lock().unwrap(), 1);
     ui.dispatch(UiIntent::ScreenshotStarted { x: 90.0, y: 70.0 })
         .unwrap();
     ui.dispatch(UiIntent::ScreenshotMoved { x: 10.0, y: 20.0 })

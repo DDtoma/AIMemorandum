@@ -1,0 +1,35 @@
+[package]
+name = "aimemorandum-linux"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "aimemorandum"
+path = "src/main.rs"
+
+[dependencies]
+aimemorandum-core = { path = "../core" }
+aimemorandum-ui = { path = "../ui" }
+chrono = "0.4"
+iana-time-zone = "0.1"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uuid = { version = "1", features = ["v4"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+arboard = "3.7"
+ashpd = { version = "0.13", features = ["screencast", "global_shortcuts"] }
+futures-util = "0.3"
+global-hotkey = "0.9"
+ksni = { version = "0.3", features = ["blocking"] }
+libc = "0.2"
+pipewire = "0.10"
+tokio = { version = "1", features = ["rt"] }
+xcap = "0.9"
+
+[dev-dependencies]
+tempfile = "3"
