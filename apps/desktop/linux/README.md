@@ -27,9 +27,11 @@ usual `/usr/local/bin`, `/usr/local/share/applications` and
 - X11 uses `xcap` and `global-hotkey` (`Ctrl+Alt+M/S/V/L`).
 - Wayland uses the XDG ScreenCast portal and one PipeWire static frame. The
   current GNOME/KDE candidate uses a fullscreen borderless overlay; KDE
-  layer-shell is not yet integrated. Wayland output placement and multi-monitor
-  overlay alignment therefore remain pending real acceptance. Cropping converts
-  overlay-local coordinates through the selected monitor's origin and scale.
+  layer-shell is not yet integrated. Slint/winit cannot select a Wayland output,
+  so the compositor may show the overlay on a different monitor from the portal
+  capture. Output-aware Wayland overlay routing is still missing; do not use or
+  accept multi-monitor Wayland cropping as correct. Cropping itself converts
+  overlay-local coordinates through the captured monitor's origin and scale.
 - The tray is a StatusNotifierItem. GNOME requires an AppIndicator/KStatusNotifier
   extension; KDE and XFCE provide a compatible host directly.
 - Autostart and data follow XDG. The local socket accepts only the same UID and
