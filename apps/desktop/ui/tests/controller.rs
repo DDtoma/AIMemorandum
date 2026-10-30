@@ -4,7 +4,7 @@ use aimemorandum_ui::{
     ItemFilter, Screenshot, UiController, UiError, UiIntent,
 };
 use chrono::{DateTime, Duration, TimeZone, Utc};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
 struct FixedClock(DateTime<Utc>);
@@ -520,6 +520,7 @@ impl Screenshot for FakeScreenshot {
 struct FakeClipboard {
     text: Option<String>,
     image: Option<CapturedImage>,
+    releases: std::sync::Arc<std::sync::Mutex<Vec<PathBuf>>>,
 }
 
 impl Clipboard for FakeClipboard {
@@ -529,6 +530,10 @@ impl Clipboard for FakeClipboard {
 
     fn read_image(&self) -> Result<Option<CapturedImage>, UiError> {
         Ok(self.image.clone())
+    }
+
+    fn release_image(&self, image: &CapturedImage) {
+        self.releases.lock().unwrap().push(image.path.clone());
     }
 }
 
@@ -655,12 +660,51 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
 }
 
 #[test]
+fn clipboard_image_is_saved_through_core_and_released() {
+    let directory = tempfile::tempdir().unwrap();
+    let image_path = directory.path().join("clipboard.png");
+    write_png(&image_path);
+    let releases = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let clipboard = FakeClipboard {
+        text: None,
+        image: Some(CapturedImage {
+            path: image_path.clone(),
+            mime: "image/png".to_owned(),
+            pixel_width: 2,
+            pixel_height: 3,
+        }),
+        releases: releases.clone(),
+    };
+    let store = LocalStore::open(directory.path()).unwrap();
+    let mut ui = UiController::new(
+        store,
+        NoScreenshot,
+        clipboard,
+        NoEnrollment,
+        NoShell,
+        FixedClock(now()),
+    )
+    .unwrap();
+
+    ui.dispatch(UiIntent::CaptureClipboard).unwrap();
+
+    let items = LocalStore::open(directory.path()).unwrap().items().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].attachments.len(), 1);
+    assert_eq!(
+        releases.lock().unwrap().as_slice(),
+        std::slice::from_ref(&image_path)
+    );
+}
+
+#[test]
 fn clipboard_text_is_saved_through_core() {
     let directory = tempfile::tempdir().unwrap();
     let store = LocalStore::open(directory.path()).unwrap();
     let clipboard = FakeClipboard {
         text: Some("剪贴板记录".to_owned()),
         image: None,
+        releases: Default::default(),
     };
     let mut ui = UiController::new(
         store,

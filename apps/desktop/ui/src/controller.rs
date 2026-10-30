@@ -171,7 +171,7 @@ where
                 Ok(())
             }
             UiIntent::ScreenshotFinished { x, y } => self.finish_screenshot(x, y),
-            UiIntent::ScreenshotCancelled => {
+            UiIntent::ScreenshotCancelled | UiIntent::Shutdown => {
                 self.screenshot.cancel_capture();
                 self.view.screenshot = Default::default();
                 Ok(())
@@ -428,8 +428,10 @@ where
 
     fn capture_clipboard(&mut self) -> Result<(), UiError> {
         if let Some(image) = self.clipboard.read_image()? {
-            let source = image_source(&image.path, 0)?;
-            return self.save_capture("clipboard", vec![source]);
+            let result = image_source(&image.path, 0)
+                .and_then(|source| self.save_capture("clipboard", vec![source]));
+            self.clipboard.release_image(&image);
+            return result;
         }
         if let Some(text) = self.clipboard.read_text()? {
             return self.save_content("clipboard", text, Vec::new(), false);

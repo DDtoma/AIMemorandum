@@ -1,10 +1,9 @@
-use crate::{platform_error, set_autostart_at, write_png};
+use crate::{capture::write_png, platform_error, set_autostart_at};
 use aimemorandum_ui::{Clipboard, Clock, DesktopShell, UiError};
 use arboard::{Clipboard as Arboard, ImageData};
-use chrono::{DateTime, Local, TimeZone};
+use chrono::{DateTime, Utc};
 use image::RgbaImage;
 use std::{
-    borrow::Cow,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -45,6 +44,10 @@ impl Clipboard for LinuxClipboard {
             .ok_or_else(|| UiError::Platform("剪贴板图像的 RGBA 缓冲区无效".to_owned()))?;
         write_png(&image, &self.capture_dir).map(Some)
     }
+
+    fn release_image(&self, image: &aimemorandum_ui::CapturedImage) {
+        let _ = std::fs::remove_file(&image.path);
+    }
 }
 
 pub struct LinuxDesktopShell {
@@ -82,8 +85,8 @@ impl DesktopShell for LinuxDesktopShell {
 pub struct SystemClock;
 
 impl Clock for SystemClock {
-    fn now(&self) -> DateTime<Local> {
-        Local::now()
+    fn now(&self) -> DateTime<Utc> {
+        Utc::now()
     }
 
     fn timezone(&self) -> String {

@@ -52,6 +52,7 @@ pub enum UiIntent {
         y: f64,
     },
     ScreenshotCancelled,
+    Shutdown,
     SettingsChanged {
         server_url: String,
         enrollment_code: String,

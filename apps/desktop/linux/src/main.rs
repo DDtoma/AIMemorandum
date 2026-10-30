@@ -21,7 +21,6 @@ mod linux {
     use std::{
         error::Error,
         os::unix::net::UnixStream,
-        path::PathBuf,
         sync::{
             atomic::{AtomicBool, Ordering},
             mpsc, Arc,
@@ -100,14 +99,15 @@ mod linux {
 
     struct IpcService {
         stop: Arc<AtomicBool>,
-        path: PathBuf,
+        primary: Arc<PrimaryInstance>,
         thread: JoinHandle<()>,
     }
 
     impl Drop for IpcService {
         fn drop(&mut self) {
             self.stop.store(true, Ordering::Release);
-            if let Ok(stream) = UnixStream::connect(&self.path) {
+            self.primary.shutdown();
+            if let Ok(stream) = UnixStream::connect(self.primary.path()) {
                 let _ = stream.shutdown(std::net::Shutdown::Write);
             }
             let _ = self.thread.join();
@@ -117,10 +117,11 @@ mod linux {
     fn spawn_ipc(primary: PrimaryInstance, events: mpsc::Sender<ShellEvent>) -> IpcService {
         let stop = Arc::new(AtomicBool::new(false));
         let worker_stop = stop.clone();
-        let path = primary.path().to_owned();
+        let primary = Arc::new(primary);
+        let worker_primary = primary.clone();
         let thread = std::thread::spawn(move || {
             while !worker_stop.load(Ordering::Acquire) {
-                let result = primary.serve_next(|action| {
+                let result = worker_primary.serve_next(|action| {
                     if let Some(event) = shell_event(action) {
                         events.send(event).map_err(|error| error.to_string())?;
                     }
@@ -134,7 +135,11 @@ mod linux {
                 }
             }
         });
-        IpcService { stop, path, thread }
+        IpcService {
+            stop,
+            primary,
+            thread,
+        }
     }
 
     fn shell_event(action: CliAction) -> Option<ShellEvent> {
@@ -152,6 +157,25 @@ mod linux {
     mod tests {
         use super::*;
         use std::time::{Duration, Instant};
+
+        #[test]
+        fn ipc_service_shutdown_closes_an_idle_client() {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join("primary.sock");
+            let primary = PrimaryInstance::acquire(&path).unwrap();
+            let (events, _receiver) = mpsc::channel();
+            let service = spawn_ipc(primary, events);
+            let _idle_client = UnixStream::connect(path).unwrap();
+            std::thread::sleep(Duration::from_millis(50));
+
+            let started = Instant::now();
+            drop(service);
+
+            assert!(
+                started.elapsed() < Duration::from_secs(1),
+                "IPC shutdown waited for an idle client read timeout"
+            );
+        }
 
         #[test]
         fn ipc_service_shutdown_wakes_a_blocked_accept() {

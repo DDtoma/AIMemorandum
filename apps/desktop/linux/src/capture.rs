@@ -92,6 +92,12 @@ impl ScreenshotAdapter {
     }
 }
 
+impl Drop for ScreenshotAdapter {
+    fn drop(&mut self) {
+        self.cancel_capture();
+    }
+}
+
 impl Screenshot for ScreenshotAdapter {
     fn capture_full(&self) -> Result<CapturedImage, UiError> {
         ScreenshotAdapter::capture_full(self)

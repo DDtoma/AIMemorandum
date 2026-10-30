@@ -39,6 +39,7 @@ pub trait Screenshot {
 pub trait Clipboard {
     fn read_text(&self) -> Result<Option<String>, UiError>;
     fn read_image(&self) -> Result<Option<CapturedImage>, UiError>;
+    fn release_image(&self, _image: &CapturedImage) {}
 }
 
 pub trait Enrollment {

@@ -228,6 +228,7 @@ impl SlintShell {
         let timer = Timer::default();
         let mut last_view: Option<ViewModel> = None;
         let mut ticks = 0_u64;
+        let mut quitting = false;
         timer.start(TimerMode::Repeated, Duration::from_millis(100), move || {
             if let Some(events) = events.as_mut() {
                 while let Ok(event) = events.try_recv() {
@@ -267,14 +268,29 @@ impl SlintShell {
                             let _ = sender.send(UiIntent::CompleteItem(id));
                         }
                         ShellEvent::Quit => {
-                            let _ = slint::quit_event_loop();
+                            if !quitting {
+                                quitting = true;
+                                let _ = capture.hide();
+                                let _ = items.hide();
+                                let _ = reminder.hide();
+                                let _ = settings.hide();
+                                let _ = screenshot.hide();
+                                if sender.send(UiIntent::Shutdown).is_err() {
+                                    let _ = slint::quit_event_loop();
+                                }
+                            }
                         }
                     }
                 }
             }
             let mut latest = None;
+            let mut shutdown_finished = false;
             while let Ok(update) = updates.try_recv() {
+                shutdown_finished |= update.shutdown_finished;
                 latest = Some(update);
+            }
+            if shutdown_finished {
+                let _ = slint::quit_event_loop();
             }
             if let Some(update) = latest {
                 if last_view.as_ref() != Some(&update.view) || update.error.is_some() {
@@ -311,7 +327,7 @@ fn apply_update(
     screenshot: &ScreenshotOverlay,
     update: UiUpdate,
 ) {
-    let UiUpdate { view, error } = update;
+    let UiUpdate { view, error, .. } = update;
     let screenshot_active = view.screenshot.active || view.screenshot.start_x.is_some();
     capture.set_draft(view.capture.draft.into());
     capture.set_message(view.capture.message.unwrap_or_default().into());

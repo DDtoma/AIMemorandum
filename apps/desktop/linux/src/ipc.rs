@@ -7,6 +7,10 @@ use std::{
         net::{UnixListener, UnixStream},
     },
     path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex,
+    },
     time::Duration,
 };
 
@@ -29,6 +33,8 @@ pub enum IpcError {
 pub struct PrimaryInstance {
     listener: UnixListener,
     path: PathBuf,
+    active: Mutex<Option<UnixStream>>,
+    stopping: AtomicBool,
 }
 
 impl PrimaryInstance {
@@ -62,6 +68,8 @@ impl PrimaryInstance {
         Ok(Self {
             listener,
             path: path.to_path_buf(),
+            active: Mutex::new(None),
+            stopping: AtomicBool::new(false),
         })
     }
 
@@ -69,19 +77,42 @@ impl PrimaryInstance {
         &self.path
     }
 
+    pub fn shutdown(&self) {
+        self.stopping.store(true, Ordering::Release);
+        if let Ok(active) = self.active.lock() {
+            if let Some(stream) = active.as_ref() {
+                let _ = stream.shutdown(std::net::Shutdown::Both);
+            }
+        }
+    }
+
     pub fn serve_next<F>(&self, handle: F) -> Result<(), IpcError>
     where
         F: FnOnce(CliAction) -> Result<(), String>,
     {
         let (mut stream, _) = self.listener.accept()?;
-        stream.set_read_timeout(Some(Duration::from_secs(5)))?;
-        stream.set_write_timeout(Some(Duration::from_secs(5)))?;
-        let result = serve_stream(&mut stream, handle);
-        let response = match &result {
-            Ok(()) => "ok\n".to_owned(),
-            Err(error) => format!("error:{}\n", single_line(&error.to_string())),
-        };
-        stream.write_all(response.as_bytes())?;
+        let control = stream.try_clone()?;
+        self.active
+            .lock()
+            .map_err(|_| io::Error::other("IPC active connection lock poisoned"))?
+            .replace(control);
+        if self.stopping.load(Ordering::Acquire) {
+            let _ = stream.shutdown(std::net::Shutdown::Both);
+        }
+        let result = (|| {
+            stream.set_read_timeout(Some(Duration::from_secs(5)))?;
+            stream.set_write_timeout(Some(Duration::from_secs(5)))?;
+            let result = serve_stream(&mut stream, handle);
+            let response = match &result {
+                Ok(()) => "ok\n".to_owned(),
+                Err(error) => format!("error:{}\n", single_line(&error.to_string())),
+            };
+            stream.write_all(response.as_bytes())?;
+            result
+        })();
+        if let Ok(mut active) = self.active.lock() {
+            active.take();
+        }
         result
     }
 }

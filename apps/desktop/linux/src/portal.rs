@@ -66,7 +66,7 @@ async fn capture_portal_frame(
             &session,
             SelectSourcesOptions::default()
                 .set_cursor_mode(CursorMode::Hidden)
-                .set_sources(SourceType::Monitor)
+                .set_sources(SourceType::Monitor.into())
                 .set_multiple(false)
                 .set_persist_mode(PersistMode::ExplicitlyRevoked)
                 .set_restore_token(saved_token),
@@ -369,7 +369,8 @@ fn read_pipewire_frame(node_id: u32, fd: OwnedFd) -> Result<Frame, Box<dyn Error
         &mut params,
     )?;
     mainloop.run();
-    match result.borrow_mut().take() {
+    let outcome = result.borrow_mut().take();
+    match outcome {
         Some(Ok(frame)) => Ok(frame),
         Some(Err(error)) => Err(error.into()),
         None => Err("PipeWire stopped without a frame".into()),
