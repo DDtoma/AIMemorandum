@@ -100,17 +100,16 @@ async fn capture_once(
     }
     let image = RgbaImage::from_raw(frame.width, frame.height, frame.rgba)
         .ok_or("PipeWire returned an invalid RGBA buffer")?;
-    StaticFrame::new(
+    Ok(StaticFrame::new(
         image,
         MonitorGeometry {
-            x: x as f64,
-            y: y as f64,
-            width: logical_width as f64,
-            height: logical_height as f64,
+            x,
+            y,
+            width: logical_width as u32,
+            height: logical_height as u32,
             scale_factor: scale_x,
         },
-    )
-    .map_err(|error| error.into())
+    ))
 }
 
 fn persist_token(path: &Path, token: &str) -> Result<(), Box<dyn Error>> {

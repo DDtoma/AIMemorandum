@@ -54,8 +54,8 @@ pub fn start_x11_hotkeys(
             HotKey::new(Some(modifiers), Code::KeyL),
         ),
     ];
-    for (_, hotkey) in bindings.iter().copied() {
-        manager.register(hotkey)?;
+    for (_, hotkey) in &bindings {
+        manager.register(*hotkey)?;
     }
     let receiver = GlobalHotKeyEvent::receiver().clone();
     std::thread::spawn(move || {
