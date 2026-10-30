@@ -73,10 +73,13 @@ impl DesktopShell for LinuxDesktopShell {
         if !path.is_file() {
             return Err(UiError::NotFound(format!("附件不存在：{}", path.display())));
         }
-        Command::new("xdg-open")
+        let mut child = Command::new("xdg-open")
             .arg(path)
             .spawn()
             .map_err(platform_error)?;
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
         Ok(())
     }
 }

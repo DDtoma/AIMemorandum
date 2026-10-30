@@ -90,30 +90,46 @@ impl PrimaryInstance {
     where
         F: FnOnce(CliAction) -> Result<(), String>,
     {
-        let (mut stream, _) = self.listener.accept()?;
-        let control = stream.try_clone()?;
-        self.active
-            .lock()
-            .map_err(|_| io::Error::other("IPC active connection lock poisoned"))?
-            .replace(control);
-        if self.stopping.load(Ordering::Acquire) {
-            let _ = stream.shutdown(std::net::Shutdown::Both);
+        let mut handle = Some(handle);
+        loop {
+            let (mut stream, _) = self.listener.accept()?;
+            let control = stream.try_clone()?;
+            self.active
+                .lock()
+                .map_err(|_| io::Error::other("IPC active connection lock poisoned"))?
+                .replace(control);
+            if self.stopping.load(Ordering::Acquire) {
+                let _ = stream.shutdown(std::net::Shutdown::Both);
+            }
+            let result = (|| {
+                stream.set_read_timeout(Some(Duration::from_secs(5)))?;
+                stream.set_write_timeout(Some(Duration::from_secs(5)))?;
+                let Some(action) = read_action(&mut stream)? else {
+                    return Ok(None);
+                };
+                let result = handle
+                    .take()
+                    .expect("IPC handler is consumed by at most one command")(
+                    action
+                )
+                .map_err(IpcError::Remote);
+                let response = match &result {
+                    Ok(()) => "ok\n".to_owned(),
+                    Err(error) => format!("error:{}\n", single_line(&error.to_string())),
+                };
+                stream.write_all(response.as_bytes())?;
+                result.map(Some)
+            })();
+            if let Ok(mut active) = self.active.lock() {
+                active.take();
+            }
+            match result {
+                Ok(None) if self.stopping.load(Ordering::Acquire) => return Ok(()),
+                Ok(None) => continue,
+                Ok(Some(())) => return Ok(()),
+                Err(error) => return Err(error),
+            }
         }
-        let result = (|| {
-            stream.set_read_timeout(Some(Duration::from_secs(5)))?;
-            stream.set_write_timeout(Some(Duration::from_secs(5)))?;
-            let result = serve_stream(&mut stream, handle);
-            let response = match &result {
-                Ok(()) => "ok\n".to_owned(),
-                Err(error) => format!("error:{}\n", single_line(&error.to_string())),
-            };
-            stream.write_all(response.as_bytes())?;
-            result
-        })();
-        if let Ok(mut active) = self.active.lock() {
-            active.take();
-        }
-        result
     }
 }
 
@@ -145,18 +161,17 @@ pub fn send_command(path: impl AsRef<Path>, action: CliAction) -> Result<(), Ipc
     }
 }
 
-fn serve_stream<F>(stream: &mut UnixStream, handle: F) -> Result<(), IpcError>
-where
-    F: FnOnce(CliAction) -> Result<(), String>,
-{
+fn read_action(stream: &mut UnixStream) -> Result<Option<CliAction>, IpcError> {
     if peer_uid(stream)? != current_uid() {
         return Err(IpcError::ForeignPeer);
     }
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut frame = Vec::new();
     reader.by_ref().take(4097).read_until(b'\n', &mut frame)?;
-    let action = decode_command(&frame)?;
-    handle(action).map_err(IpcError::Remote)
+    if frame.is_empty() {
+        return Ok(None);
+    }
+    decode_command(&frame).map(Some)
 }
 
 fn current_uid() -> u32 {

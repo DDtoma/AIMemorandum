@@ -18,6 +18,7 @@ use std::{
     os::fd::OwnedFd,
     path::{Path, PathBuf},
     rc::Rc,
+    time::Duration,
 };
 
 pub struct PortalFrameProvider {
@@ -119,8 +120,12 @@ fn persist_token(path: &Path, token: &str) -> Result<(), Box<dyn Error>> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let temporary = path.with_extension(format!("{}.tmp", std::process::id()));
-    {
+    let name = path
+        .file_name()
+        .unwrap_or_else(|| std::ffi::OsStr::new("restore-token"))
+        .to_string_lossy();
+    let temporary = path.with_file_name(format!(".{name}.{}.tmp", uuid::Uuid::new_v4()));
+    let result = (|| -> Result<(), Box<dyn Error>> {
         use std::io::Write;
         let mut options = fs::OpenOptions::new();
         options.write(true).create_new(true);
@@ -132,12 +137,14 @@ fn persist_token(path: &Path, token: &str) -> Result<(), Box<dyn Error>> {
         let mut file = options.open(&temporary)?;
         file.write_all(token.as_bytes())?;
         file.sync_all()?;
+        drop(file);
+        fs::rename(&temporary, path)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
     }
-    if path.exists() {
-        fs::remove_file(path)?;
-    }
-    fs::rename(&temporary, path)?;
-    Ok(())
+    result
 }
 
 fn copy_rgba(info: VideoInfoRaw, data: &mut Data) -> Result<Frame, String> {
@@ -220,6 +227,25 @@ struct CaptureState {
     info: VideoInfoRaw,
     mainloop: Rc<pw::main_loop::MainLoopBox>,
     result: Rc<RefCell<Option<Result<Frame, String>>>>,
+}
+
+fn run_capture_loop(
+    mainloop: &Rc<pw::main_loop::MainLoopBox>,
+    result: &Rc<RefCell<Option<Result<Frame, String>>>>,
+    timeout: Duration,
+) -> Result<(), Box<dyn Error>> {
+    let timeout_loop = Rc::clone(mainloop);
+    let timeout_result = Rc::clone(result);
+    let timer = mainloop.loop_().add_timer(move |_| {
+        let mut outcome = timeout_result.borrow_mut();
+        if outcome.is_none() {
+            *outcome = Some(Err("timed out waiting for a PipeWire frame".to_owned()));
+        }
+        timeout_loop.quit();
+    });
+    timer.update_timer(Some(timeout), None).into_result()?;
+    mainloop.run();
+    Ok(())
 }
 
 fn read_pipewire_frame(node_id: u32, fd: OwnedFd) -> Result<Frame, Box<dyn Error>> {
@@ -368,11 +394,54 @@ fn read_pipewire_frame(node_id: u32, fd: OwnedFd) -> Result<Frame, Box<dyn Error
         pw::stream::StreamFlags::AUTOCONNECT | pw::stream::StreamFlags::MAP_BUFFERS,
         &mut params,
     )?;
-    mainloop.run();
+    run_capture_loop(&mainloop, &result, Duration::from_secs(10))?;
     let outcome = result.borrow_mut().take();
     match outcome {
         Some(Ok(frame)) => Ok(frame),
         Some(Err(error)) => Err(error.into()),
         None => Err("PipeWire stopped without a frame".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{persist_token, run_capture_loop};
+    use pipewire as pw;
+    use std::{cell::RefCell, error::Error, rc::Rc, time::Duration};
+
+    #[test]
+    fn token_persistence_cleans_up_and_can_retry_after_a_failure() {
+        let temp = tempfile::tempdir().unwrap();
+        let destination = temp.path().join("restore-token");
+        std::fs::create_dir(&destination).unwrap();
+
+        assert!(persist_token(&destination, "first").is_err());
+        assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 1);
+
+        std::fs::remove_dir(&destination).unwrap();
+        persist_token(&destination, "second").unwrap();
+        assert_eq!(std::fs::read_to_string(destination).unwrap(), "second");
+    }
+    #[test]
+    fn capture_loop_times_out_without_a_frame() {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let outcome = (|| -> Result<(), Box<dyn Error>> {
+                let mainloop = Rc::new(pw::main_loop::MainLoopBox::new(None)?);
+                let result = Rc::new(RefCell::new(None));
+                run_capture_loop(&mainloop, &result, Duration::from_millis(20))?;
+                match result.borrow_mut().take() {
+                    Some(Err(message)) if message.contains("timed out") => Ok(()),
+                    Some(Err(message)) => Err(format!("unexpected error: {message}").into()),
+                    Some(Ok(_)) => Err("unexpected frame".into()),
+                    None => Err("missing timeout result".into()),
+                }
+            })();
+            let _ = sender.send(outcome.map_err(|error| error.to_string()));
+        });
+        receiver
+            .recv_timeout(Duration::from_secs(2))
+            .expect("capture-loop worker failed or did not exit")
+            .unwrap();
     }
 }

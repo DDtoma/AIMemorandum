@@ -443,6 +443,7 @@ where
 
     fn begin_screenshot(&mut self) -> Result<(), UiError> {
         let image = self.screenshot.capture_full()?;
+        self.view.screenshot.display = self.screenshot.capture_display();
         self.view.screenshot.active = true;
         self.view.screenshot.background = Some(image.path);
         Ok(())

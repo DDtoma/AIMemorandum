@@ -1,5 +1,5 @@
 use crate::{platform_error, LogicalRegion, StaticFrame};
-use aimemorandum_ui::{CaptureRegion, CapturedImage, Screenshot, UiError};
+use aimemorandum_ui::{CaptureRegion, CapturedImage, DisplayGeometry, Screenshot, UiError};
 use image::{ExtendedColorType, ImageEncoder, RgbaImage};
 use std::{
     fs::OpenOptions,
@@ -50,6 +50,19 @@ impl ScreenshotAdapter {
             let _ = std::fs::remove_file(previous.image.path);
         }
         Ok(image)
+    }
+
+    pub fn capture_display(&self) -> Option<DisplayGeometry> {
+        let cached = self.cached.lock().ok()?;
+        cached.as_ref().map(|current| {
+            let monitor = current.frame.monitor();
+            DisplayGeometry {
+                x: monitor.x,
+                y: monitor.y,
+                width: monitor.width,
+                height: monitor.height,
+            }
+        })
     }
 
     pub fn cancel_capture(&self) {
@@ -105,6 +118,10 @@ impl Screenshot for ScreenshotAdapter {
 
     fn capture(&self, region: CaptureRegion) -> Result<CapturedImage, UiError> {
         ScreenshotAdapter::capture(self, region)
+    }
+
+    fn capture_display(&self) -> Option<DisplayGeometry> {
+        ScreenshotAdapter::capture_display(self)
     }
 
     fn cancel_capture(&self) {

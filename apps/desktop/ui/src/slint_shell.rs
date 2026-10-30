@@ -227,6 +227,7 @@ impl SlintShell {
         }
         let timer = Timer::default();
         let mut last_view: Option<ViewModel> = None;
+        let mut screenshot_image = CachedScreenshot::default();
         let mut ticks = 0_u64;
         let mut quitting = false;
         timer.start(TimerMode::Repeated, Duration::from_millis(100), move || {
@@ -296,7 +297,15 @@ impl SlintShell {
                 if last_view.as_ref() != Some(&update.view) || update.error.is_some() {
                     last_view = Some(update.view.clone());
                     observer(&update.view);
-                    apply_update(&capture, &items, &reminder, &settings, &screenshot, update);
+                    apply_update(
+                        &capture,
+                        &items,
+                        &reminder,
+                        &settings,
+                        &screenshot,
+                        update,
+                        &mut screenshot_image,
+                    );
                 }
             }
             ticks += 1;
@@ -326,6 +335,7 @@ fn apply_update(
     settings: &Settings,
     screenshot: &ScreenshotOverlay,
     update: UiUpdate,
+    screenshot_image: &mut CachedScreenshot,
 ) {
     let UiUpdate { view, error, .. } = update;
     let screenshot_active = view.screenshot.active || view.screenshot.start_x.is_some();
@@ -402,18 +412,46 @@ fn apply_update(
     settings.set_message(view.settings.message.unwrap_or_default().into());
     settings.set_error(view.settings.error.unwrap_or_default().into());
 
-    if let Some(path) = view.screenshot.background {
-        match slint::Image::load_from_path(&path) {
-            Ok(image) => screenshot.set_frame(image),
-            Err(error) => eprintln!("无法加载截图静态帧 {}: {error}", path.display()),
-        }
-    } else {
-        screenshot.set_frame(slint::Image::default());
-    }
+    screenshot_image.apply(view.screenshot.background.as_deref(), screenshot);
     if screenshot_active {
+        if let Some(display) = view.screenshot.display {
+            // X11 can use the captured output origin; Wayland leaves output choice to the compositor.
+            screenshot
+                .window()
+                .set_position(slint::LogicalPosition::new(
+                    display.x as f32,
+                    display.y as f32,
+                ));
+        }
         screenshot.window().set_fullscreen(true);
         let _ = screenshot.show();
     } else {
         let _ = screenshot.hide();
+    }
+}
+
+#[derive(Default)]
+struct CachedScreenshot {
+    path: Option<std::path::PathBuf>,
+    image: slint::Image,
+}
+
+impl CachedScreenshot {
+    fn apply(&mut self, path: Option<&std::path::Path>, screenshot: &ScreenshotOverlay) {
+        if self.path.as_deref() != path {
+            self.image =
+                path.map_or_else(
+                    slint::Image::default,
+                    |path| match slint::Image::load_from_path(path) {
+                        Ok(image) => image,
+                        Err(error) => {
+                            eprintln!("无法加载截图静态帧 {}: {error}", path.display());
+                            slint::Image::default()
+                        }
+                    },
+                );
+            self.path = path.map(std::path::Path::to_path_buf);
+        }
+        screenshot.set_frame(self.image.clone());
     }
 }

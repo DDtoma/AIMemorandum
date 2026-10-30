@@ -1,7 +1,7 @@
 use aimemorandum_core::{Attachment, Item, ItemKind, LocalStore, SubmitKey, TaskState};
 use aimemorandum_ui::{
-    CaptureRegion, CapturedImage, Clipboard, Clock, DesktopShell, DeviceCredentials, Enrollment,
-    ItemFilter, Screenshot, UiController, UiError, UiIntent,
+    CaptureRegion, CapturedImage, Clipboard, Clock, DesktopShell, DeviceCredentials,
+    DisplayGeometry, Enrollment, ItemFilter, Screenshot, UiController, UiError, UiIntent,
 };
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use std::path::{Path, PathBuf};
@@ -497,6 +497,15 @@ impl Screenshot for FakeScreenshot {
         })
     }
 
+    fn capture_display(&self) -> Option<DisplayGeometry> {
+        Some(DisplayGeometry {
+            x: -100,
+            y: 50,
+            width: 1920,
+            height: 1080,
+        })
+    }
+
     fn capture(&self, region: CaptureRegion) -> Result<CapturedImage, UiError> {
         self.regions.lock().unwrap().push(region);
         Ok(CapturedImage {
@@ -603,6 +612,15 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
     ui.dispatch(UiIntent::BeginScreenshot).unwrap();
     assert!(ui.view().screenshot.active);
     assert!(ui.view().screenshot.background.is_some());
+    assert_eq!(
+        ui.view().screenshot.display,
+        Some(DisplayGeometry {
+            x: -100,
+            y: 50,
+            width: 1920,
+            height: 1080,
+        })
+    );
     assert_eq!(*full_frames.lock().unwrap(), 1);
     ui.dispatch(UiIntent::ScreenshotStarted { x: 90.0, y: 70.0 })
         .unwrap();

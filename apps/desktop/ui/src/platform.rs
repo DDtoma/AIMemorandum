@@ -10,6 +10,14 @@ pub struct CaptureRegion {
     pub height: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DisplayGeometry {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CapturedImage {
     pub path: PathBuf,
@@ -30,6 +38,10 @@ pub trait Screenshot {
     }
 
     fn capture(&self, region: CaptureRegion) -> Result<CapturedImage, UiError>;
+
+    fn capture_display(&self) -> Option<DisplayGeometry> {
+        None
+    }
 
     fn cancel_capture(&self) {}
 
