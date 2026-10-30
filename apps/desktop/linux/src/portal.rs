@@ -62,58 +62,68 @@ async fn capture_portal_frame(
 ) -> Result<StaticFrame, Box<dyn Error>> {
     let portal = Screencast::new().await?;
     let session = portal.create_session(Default::default()).await?;
-    portal
-        .select_sources(
-            &session,
-            SelectSourcesOptions::default()
-                .set_cursor_mode(CursorMode::Hidden)
-                .set_sources(Some(SourceType::Monitor.into()))
-                .set_multiple(false)
-                .set_persist_mode(PersistMode::ExplicitlyRevoked)
-                .set_restore_token(saved_token),
-        )
-        .await?;
-    let response = portal
-        .start(&session, None, Default::default())
-        .await?
-        .response()?;
-    if let Some(token) = response.restore_token() {
-        persist_token(token_path, token)?;
+    let result: Result<StaticFrame, Box<dyn Error>> = async {
+        portal
+            .select_sources(
+                &session,
+                SelectSourcesOptions::default()
+                    .set_cursor_mode(CursorMode::Hidden)
+                    .set_sources(Some(SourceType::Monitor.into()))
+                    .set_multiple(false)
+                    .set_persist_mode(PersistMode::ExplicitlyRevoked)
+                    .set_restore_token(saved_token),
+            )
+            .await?;
+        let response = portal
+            .start(&session, None, Default::default())
+            .await?
+            .response()?;
+        if let Some(token) = response.restore_token() {
+            persist_token(token_path, token)?;
+        }
+        let stream = response
+            .streams()
+            .first()
+            .ok_or("portal returned no streams")?;
+        let node_id = stream.pipe_wire_node_id();
+        let (x, y) = stream.position().unwrap_or((0, 0));
+        let logical_size = stream.size();
+        let fd = portal
+            .open_pipe_wire_remote(&session, Default::default())
+            .await?;
+        let frame = read_pipewire_frame(node_id, fd)?;
+        let (logical_width, logical_height) =
+            logical_size.unwrap_or((frame.width as i32, frame.height as i32));
+        if logical_width <= 0 || logical_height <= 0 {
+            return Err("portal returned invalid logical monitor dimensions".into());
+        }
+        let scale_x = frame.width as f64 / logical_width as f64;
+        let scale_y = frame.height as f64 / logical_height as f64;
+        if !scale_x.is_finite() || scale_x <= 0.0 || (scale_x - scale_y).abs() > 0.01 {
+            return Err("portal returned unsupported non-uniform monitor scaling".into());
+        }
+        let image = RgbaImage::from_raw(frame.width, frame.height, frame.rgba)
+            .ok_or("PipeWire returned an invalid RGBA buffer")?;
+        Ok(StaticFrame::new(
+            image,
+            MonitorGeometry {
+                x,
+                y,
+                width: logical_width as u32,
+                height: logical_height as u32,
+                scale_factor: scale_x,
+            },
+        ))
     }
-    let stream = response
-        .streams()
-        .first()
-        .ok_or("portal returned no streams")?;
-    let node_id = stream.pipe_wire_node_id();
-    let (x, y) = stream.position().unwrap_or((0, 0));
-    let logical_size = stream.size();
-    let fd = portal
-        .open_pipe_wire_remote(&session, Default::default())
-        .await?;
-    let frame = read_pipewire_frame(node_id, fd)?;
-    let _ = session.close().await;
-    let (logical_width, logical_height) =
-        logical_size.unwrap_or((frame.width as i32, frame.height as i32));
-    if logical_width <= 0 || logical_height <= 0 {
-        return Err("portal returned invalid logical monitor dimensions".into());
+    .await;
+    let closed = session.close().await;
+    match result {
+        Ok(frame) => {
+            closed?;
+            Ok(frame)
+        }
+        Err(error) => Err(error),
     }
-    let scale_x = frame.width as f64 / logical_width as f64;
-    let scale_y = frame.height as f64 / logical_height as f64;
-    if !scale_x.is_finite() || scale_x <= 0.0 || (scale_x - scale_y).abs() > 0.01 {
-        return Err("portal returned unsupported non-uniform monitor scaling".into());
-    }
-    let image = RgbaImage::from_raw(frame.width, frame.height, frame.rgba)
-        .ok_or("PipeWire returned an invalid RGBA buffer")?;
-    Ok(StaticFrame::new(
-        image,
-        MonitorGeometry {
-            x,
-            y,
-            width: logical_width as u32,
-            height: logical_height as u32,
-            scale_factor: scale_x,
-        },
-    ))
 }
 
 fn persist_token(path: &Path, token: &str) -> Result<(), Box<dyn Error>> {
