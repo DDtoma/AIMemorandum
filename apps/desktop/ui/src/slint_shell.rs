@@ -77,14 +77,15 @@ impl SlintShell {
                 let _ = sender.send(UiIntent::Refresh);
             }
         });
-        capture.on_show_settings({
+        let show_settings = {
             let settings = settings.as_weak();
             move || {
                 if let Some(settings) = settings.upgrade() {
                     let _ = settings.show();
                 }
             }
-        });
+        };
+        capture.on_show_settings(show_settings.clone());
 
         items.on_refresh(wire!(&sender, || UiIntent::Refresh));
         items.on_select(wire!(&sender, |id| UiIntent::SelectItem(id.to_string())));
@@ -121,14 +122,7 @@ impl SlintShell {
                 attachment_id: attachment_id.to_string(),
             }
         }));
-        items.on_show_settings({
-            let settings = settings.as_weak();
-            move || {
-                if let Some(settings) = settings.upgrade() {
-                    let _ = settings.show();
-                }
-            }
-        });
+        items.on_show_settings(show_settings);
 
         reminder.on_complete(wire!(&sender, || UiIntent::CompleteReminder));
         reminder.on_snooze(wire!(&sender, || UiIntent::SnoozeReminder));
@@ -213,10 +207,10 @@ impl SlintShell {
                 }
             }
             ticks += 1;
-            if ticks % 20 == 0 {
+            if ticks.is_multiple_of(20) {
                 let _ = sender.send(UiIntent::Refresh);
             }
-            if ticks % 100 == 0 {
+            if ticks.is_multiple_of(100) {
                 let _ = sender.send(UiIntent::CheckReminders);
             }
         });

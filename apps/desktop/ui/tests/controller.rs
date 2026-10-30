@@ -1,4 +1,4 @@
-use aimemorandum_core::{Item, LocalStore, SubmitKey, TaskState};
+use aimemorandum_core::{Attachment, Item, ItemKind, LocalStore, SubmitKey, TaskState};
 use aimemorandum_ui::{
     CaptureRegion, CapturedImage, Clipboard, Clock, DesktopShell, DeviceCredentials, Enrollment,
     ItemFilter, Screenshot, UiController, UiError, UiIntent,
@@ -140,7 +140,7 @@ fn successful_capture_clears_draft_but_failed_capture_retains_it() {
     let items = LocalStore::open(directory.path()).unwrap().items().unwrap();
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].body_md, "本地优先保存");
-    assert_eq!(items[0].source.input_method, "keyboard");
+    assert_eq!(items[0].source.input_method, "text");
 }
 
 fn seed(root: &Path, title: &str, state: TaskState, offset_seconds: i64) -> String {
@@ -226,17 +226,6 @@ fn complete_reopen_remind_and_delete_use_real_store() {
     let mut ui = controller(directory.path());
     let store = LocalStore::open(directory.path()).unwrap();
 
-    ui.dispatch(UiIntent::CompleteItem(id.clone())).unwrap();
-    assert_eq!(
-        store.item(&id).unwrap().unwrap().task_state,
-        Some(TaskState::Completed)
-    );
-    ui.dispatch(UiIntent::ReopenItem(id.clone())).unwrap();
-    assert_eq!(
-        store.item(&id).unwrap().unwrap().task_state,
-        Some(TaskState::Todo)
-    );
-
     ui.dispatch(UiIntent::RemindItemInTwoHours(id.clone()))
         .unwrap();
     let reminded = store.item(&id).unwrap().unwrap();
@@ -245,9 +234,27 @@ fn complete_reopen_remind_and_delete_use_real_store() {
         reminded.reminders[0].remind_at,
         (now() + Duration::hours(2)).to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
     );
+    ui.dispatch(UiIntent::CompleteItem(id.clone())).unwrap();
+    assert_eq!(
+        store.item(&id).unwrap().unwrap().task_state,
+        Some(TaskState::Completed)
+    );
+    assert!(ui.dispatch(UiIntent::ReopenItem(id.clone())).is_err());
+    assert_eq!(
+        store.item(&id).unwrap().unwrap().task_state,
+        Some(TaskState::Completed)
+    );
+
+    let canceled = seed(directory.path(), "已取消", TaskState::Canceled, 2);
+    ui.dispatch(UiIntent::ReopenItem(canceled.clone())).unwrap();
+    assert_eq!(
+        store.item(&canceled).unwrap().unwrap().task_state,
+        Some(TaskState::Todo)
+    );
+
     ui.dispatch(UiIntent::DeleteItem(id.clone())).unwrap();
     assert!(store.item(&id).unwrap().unwrap().deleted_at.is_some());
-    assert!(ui.view().items.rows.is_empty());
+    assert!(ui.view().items.rows.iter().all(|row| row.id != id));
 }
 
 #[test]
@@ -559,6 +566,8 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
     )
     .unwrap();
 
+    ui.dispatch(UiIntent::CaptureDraftChanged("未发送草稿".to_owned()))
+        .unwrap();
     ui.dispatch(UiIntent::ScreenshotStarted { x: 90.0, y: 70.0 })
         .unwrap();
     ui.dispatch(UiIntent::ScreenshotMoved { x: 10.0, y: 20.0 })
@@ -581,6 +590,11 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
             .unwrap()
             .len(),
         1
+    );
+    assert_eq!(ui.view().capture.draft, "");
+    assert_eq!(
+        LocalStore::open(directory.path()).unwrap().items().unwrap()[0].body_md,
+        "未发送草稿"
     );
 
     ui.dispatch(UiIntent::ScreenshotStarted { x: 0.0, y: 0.0 })
@@ -616,9 +630,47 @@ fn clipboard_text_is_saved_through_core() {
         FixedClock(now()),
     )
     .unwrap();
+    ui.dispatch(UiIntent::CaptureDraftChanged("独立草稿".to_owned()))
+        .unwrap();
     ui.dispatch(UiIntent::CaptureClipboard).unwrap();
+    assert_eq!(ui.view().capture.draft, "独立草稿");
     let items = LocalStore::open(directory.path()).unwrap().items().unwrap();
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].body_md, "剪贴板记录");
     assert_eq!(items[0].source.input_method, "clipboard");
+}
+
+#[test]
+fn synchronized_requires_ready_attachments_as_well_as_no_pending_operations() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut item = Item::new_task("带附件", "text", now(), "UTC", vec![]).unwrap();
+    item.attachments
+        .push(Attachment::new("image/png", 3, "abc", 2, 3, 0));
+    let store = LocalStore::open(directory.path()).unwrap();
+    store.apply_remote(item).unwrap();
+    let mut ui = controller(directory.path());
+    assert!(store.pending().unwrap().is_empty());
+    assert!(!ui.view().items.rows[0].synchronized);
+
+    let mut item = store.items().unwrap().remove(0);
+    item.attachments[0].state = "ready".to_owned();
+    store.update_attachment(&item.attachments[0]).unwrap();
+    ui.dispatch(UiIntent::Refresh).unwrap();
+    assert!(ui.view().items.rows[0].synchronized);
+    ui.dispatch(UiIntent::SelectItem(item.id)).unwrap();
+    assert!(ui.view().items.selected.as_ref().unwrap().synchronized);
+}
+
+#[test]
+fn missing_task_state_uses_item_kind_instead_of_assuming_capture() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut item = Item::new_task("普通备忘", "text", now(), "UTC", vec![]).unwrap();
+    item.kind = ItemKind::Memo;
+    item.task_state = None;
+    LocalStore::open(directory.path())
+        .unwrap()
+        .apply_remote(item)
+        .unwrap();
+    let ui = controller(directory.path());
+    assert_eq!(ui.view().items.rows[0].state, "memo");
 }

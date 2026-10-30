@@ -1,5 +1,3 @@
-use chrono::{DateTime, Utc};
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ItemFilter {
     #[default]
@@ -119,12 +117,4 @@ pub struct ViewModel {
     pub settings: SettingsModel,
     pub tray: TrayModel,
     pub screenshot: ScreenshotOverlayModel,
-}
-
-#[derive(Debug, Clone)]
-pub struct ReminderTarget {
-    pub item_id: String,
-    pub reminder_id: String,
-    pub expected_schedule: String,
-    pub remind_at: DateTime<Utc>,
 }

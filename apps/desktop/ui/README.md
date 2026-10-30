@@ -38,6 +38,7 @@ Slint 视图 → UiIntent → UiWorker（专属线程） → UiController → ap
 ```bash
 cargo test --workspace
 cargo check --workspace
+cargo clippy --workspace --all-targets -- -D warnings
 ```
 
 controller 测试覆盖：IME 策略、保存失败草稿保留、筛选/计数/稳定 ID、dirty 刷新保护、反向框选与 8px 阈值、提醒身份与 600 秒延后、设置顺序、拖图/剪贴板真实落盘、托盘 12/36。worker 测试确认 controller 不在调用线程执行。

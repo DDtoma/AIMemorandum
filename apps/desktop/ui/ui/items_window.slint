@@ -117,7 +117,7 @@ export component ItemsWindow inherits Window {
                 HorizontalBox {
                     spacing: 7px;
                     Button { text: "保存修改"; primary: true; clicked => root.save(); }
-                    if root.selected-state == "completed" || root.selected-state == "canceled": Button {
+                    if root.selected-state == "canceled": Button {
                         text: "重新打开";
                         clicked => root.reopen(root.selected-id);
                     }

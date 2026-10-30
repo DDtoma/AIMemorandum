@@ -70,12 +70,12 @@ where
             }
             UiIntent::CaptureKey { key, shift, marked } => {
                 if InputPolicy::should_submit(key, shift, marked) {
-                    self.save_capture("keyboard", Vec::new())
+                    self.save_capture("text", Vec::new())
                 } else {
                     Ok(())
                 }
             }
-            UiIntent::SubmitCapture => self.save_capture("keyboard", Vec::new()),
+            UiIntent::SubmitCapture => self.save_capture("text", Vec::new()),
             UiIntent::CaptureClipboard => self.capture_clipboard(),
             UiIntent::DropImages(paths) => self.drop_images(paths),
             UiIntent::Refresh => self.refresh_items(),
@@ -112,10 +112,7 @@ where
                 let result = self.store.complete(&id, self.clock.now());
                 self.apply_item_result(result)
             }
-            UiIntent::ReopenItem(id) => {
-                let result = self.store.reopen(&id, self.clock.now());
-                self.apply_item_result(result)
-            }
+            UiIntent::ReopenItem(id) => self.reopen_item(&id),
             UiIntent::DeleteItem(id) => {
                 let result = self.store.delete(&id, self.clock.now());
                 self.apply_item_result(result)
@@ -173,7 +170,6 @@ where
                 Ok(())
             }
             UiIntent::ScreenshotFinished { x, y } => self.finish_screenshot(x, y),
-            UiIntent::ScreenshotRegionConfirmed(region) => self.capture_region(region),
             UiIntent::ScreenshotCancelled => {
                 self.view.screenshot = Default::default();
                 Ok(())
@@ -183,7 +179,7 @@ where
 
     fn save_capture(&mut self, method: &str, sources: Vec<ImageSource>) -> Result<(), UiError> {
         let text = self.view.capture.draft.clone();
-        self.save_content(method, text, sources)
+        self.save_content(method, text, sources, true)
     }
 
     fn save_content(
@@ -191,6 +187,7 @@ where
         method: &str,
         text: String,
         sources: Vec<ImageSource>,
+        clear_draft: bool,
     ) -> Result<(), UiError> {
         let attachments: Vec<Attachment> = sources
             .iter()
@@ -218,7 +215,9 @@ where
         });
         match result {
             Ok(_) => {
-                self.view.capture.draft.clear();
+                if clear_draft {
+                    self.view.capture.draft.clear();
+                }
                 self.view.capture.error = None;
                 self.view.capture.message = Some("已保存".to_owned());
                 self.refresh_items()
@@ -268,10 +267,7 @@ where
             .collect();
 
         self.view.items.total_count = alive.len();
-        self.view.items.active_count = alive
-            .iter()
-            .filter(|item| item.kind == ItemKind::Task && !item.ended())
-            .count();
+        self.view.items.active_count = alive.iter().filter(|item| is_open_task(item)).count();
         self.view.items.waiting_count = alive
             .iter()
             .filter(|item| item.task_state == Some(TaskState::Waiting))
@@ -288,7 +284,7 @@ where
             .iter()
             .filter(|item| match filter {
                 ItemFilter::All => true,
-                ItemFilter::Active => item.kind == ItemKind::Task && !item.ended(),
+                ItemFilter::Active => is_open_task(item),
                 ItemFilter::Waiting => item.task_state == Some(TaskState::Waiting),
                 ItemFilter::Completed => item.task_state == Some(TaskState::Completed),
             })
@@ -307,7 +303,7 @@ where
                 state: state_name(item),
                 waiting_reason: item.resume_note.clone(),
                 updated_at: item.updated_at.clone(),
-                synchronized: !pending_ids.contains(item.id.as_str()),
+                synchronized: is_synchronized(item, pending_ids.contains(item.id.as_str())),
             })
             .collect();
 
@@ -319,7 +315,10 @@ where
             })
         });
         self.view.items.selected = selected_item.map(|item| {
-            let mut detail = detail_model(item, !pending_ids.contains(item.id.as_str()));
+            let mut detail = detail_model(
+                item,
+                is_synchronized(item, pending_ids.contains(item.id.as_str())),
+            );
             if selected_was_dirty {
                 if let Some(previous) = self.view.items.selected.take() {
                     detail.title = previous.title;
@@ -330,10 +329,7 @@ where
             detail
         });
 
-        let mut tray_items: Vec<&Item> = alive
-            .iter()
-            .filter(|item| item.kind == ItemKind::Task && !item.ended())
-            .collect();
+        let mut tray_items: Vec<&Item> = alive.iter().filter(|item| is_open_task(item)).collect();
         tray_items.sort_by(|left, right| {
             left.created_at
                 .cmp(&right.created_at)
@@ -368,13 +364,28 @@ where
             .store
             .item(id)?
             .ok_or_else(|| UiError::NotFound(id.to_owned()))?;
-        let synchronized = !self
+        let has_pending = self
             .store
             .pending()?
             .iter()
             .any(|operation| operation.item_id == id);
+        let synchronized = is_synchronized(&item, has_pending);
         self.view.items.selected = Some(detail_model(&item, synchronized));
         Ok(())
+    }
+
+    fn reopen_item(&mut self, id: &str) -> Result<(), UiError> {
+        let item = self
+            .store
+            .item(id)?
+            .ok_or_else(|| UiError::NotFound(id.to_owned()))?;
+        if item.task_state != Some(TaskState::Canceled) {
+            let error = UiError::InvalidState("只有已取消的待办可以重新打开".to_owned());
+            self.view.items.error = Some(error.to_string());
+            return Err(error);
+        }
+        let result = self.store.reopen(id, self.clock.now());
+        self.apply_item_result(result)
     }
 
     fn save_selected(&mut self) -> Result<(), UiError> {
@@ -419,7 +430,7 @@ where
             return self.save_capture("clipboard", vec![source]);
         }
         if let Some(text) = self.clipboard.read_text()? {
-            return self.save_content("clipboard", text, Vec::new());
+            return self.save_content("clipboard", text, Vec::new(), false);
         }
         let error = UiError::InvalidState("剪贴板没有可保存的文本或图片".to_owned());
         self.view.capture.error = Some(error.to_string());
@@ -574,6 +585,18 @@ where
     }
 }
 
+fn is_open_task(item: &Item) -> bool {
+    item.kind == ItemKind::Task && !item.ended()
+}
+
+fn is_synchronized(item: &Item, has_pending: bool) -> bool {
+    !has_pending
+        && item
+            .attachments
+            .iter()
+            .all(|attachment| attachment.state == "ready")
+}
+
 fn state_name(item: &Item) -> String {
     match item.task_state {
         Some(TaskState::Todo) => "todo",
@@ -582,7 +605,11 @@ fn state_name(item: &Item) -> String {
         Some(TaskState::Paused) => "paused",
         Some(TaskState::Completed) => "completed",
         Some(TaskState::Canceled) => "canceled",
-        None => "capture",
+        None => match item.kind {
+            ItemKind::Capture => "capture",
+            ItemKind::Memo => "memo",
+            ItemKind::Task => "unknown",
+        },
     }
     .to_owned()
 }

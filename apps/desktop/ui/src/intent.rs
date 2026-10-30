@@ -1,4 +1,4 @@
-use crate::{CaptureRegion, ItemFilter};
+use crate::ItemFilter;
 use aimemorandum_core::SubmitKey;
 use chrono::{DateTime, Utc};
 use std::path::PathBuf;
@@ -50,7 +50,6 @@ pub enum UiIntent {
         x: f64,
         y: f64,
     },
-    ScreenshotRegionConfirmed(CaptureRegion),
     ScreenshotCancelled,
     SettingsChanged {
         server_url: String,
