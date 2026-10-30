@@ -9,6 +9,8 @@ mod capture;
 mod command;
 mod frame;
 mod geometry;
+#[cfg(any(target_os = "linux", test))]
+mod latest;
 mod paths;
 mod session;
 mod tray;

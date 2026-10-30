@@ -430,7 +430,8 @@ mod tests {
                 let mainloop = Rc::new(pw::main_loop::MainLoopBox::new(None)?);
                 let result = Rc::new(RefCell::new(None));
                 run_capture_loop(&mainloop, &result, Duration::from_millis(20))?;
-                match result.borrow_mut().take() {
+                let captured = result.borrow_mut().take();
+                match captured {
                     Some(Err(message)) if message.contains("timed out") => Ok(()),
                     Some(Err(message)) => Err(format!("unexpected error: {message}").into()),
                     Some(Ok(_)) => Err("unexpected frame".into()),

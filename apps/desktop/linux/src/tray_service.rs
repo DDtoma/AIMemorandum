@@ -1,7 +1,7 @@
-use crate::TrayMenuModel;
+use crate::{latest::Latest, TrayMenuModel};
 use aimemorandum_ui::{ShellEvent, ViewModel};
 use ksni::{blocking::TrayMethods as _, menu::StandardItem, MenuItem};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{mpsc::Sender, Arc};
 
 struct AppTray {
     model: TrayMenuModel,
@@ -70,7 +70,7 @@ impl ksni::Tray for AppTray {
 }
 
 pub struct TrayService {
-    updates: Sender<ViewModel>,
+    updates: Arc<Latest<ViewModel>>,
 }
 
 impl TrayService {
@@ -81,10 +81,10 @@ impl TrayService {
             events,
         };
         let handle = tray.spawn()?;
-        let (updates, receiver) = mpsc::channel::<ViewModel>();
+        let updates = Arc::new(Latest::new());
+        let worker_updates = Arc::clone(&updates);
         std::thread::spawn(move || {
-            while let Ok(view) = receiver.recv() {
-                let view = latest_pending(&receiver, view);
+            while let Some(view) = worker_updates.wait() {
                 if handle
                     .update(|tray| {
                         tray.update(view);
@@ -100,32 +100,12 @@ impl TrayService {
     }
 
     pub fn publish(&self, view: &ViewModel) {
-        let _ = self.updates.send(view.clone());
+        self.updates.publish(view.clone());
     }
 }
 
-fn latest_pending(receiver: &Receiver<ViewModel>, mut latest: ViewModel) -> ViewModel {
-    while let Ok(newer) = receiver.try_recv() {
-        latest = newer;
-    }
-    latest
-}
-
-#[cfg(test)]
-mod tests {
-    use super::latest_pending;
-    use aimemorandum_ui::ViewModel;
-    use std::sync::mpsc;
-
-    #[test]
-    fn pending_tray_updates_keep_the_newest_view() {
-        let (sender, receiver) = mpsc::channel();
-        for open_count in [1, 2, 3] {
-            let mut view = ViewModel::default();
-            view.tray.open_count = open_count;
-            sender.send(view).unwrap();
-        }
-        let first = receiver.recv().unwrap();
-        assert_eq!(latest_pending(&receiver, first).tray.open_count, 3);
+impl Drop for TrayService {
+    fn drop(&mut self) {
+        self.updates.close();
     }
 }
