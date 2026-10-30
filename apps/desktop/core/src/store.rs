@@ -476,6 +476,67 @@ impl LocalStore {
         })
     }
 
+    pub fn items(&self) -> Result<Vec<Item>, StoreError> {
+        let mut statement = self.connection.prepare("SELECT json FROM items")?;
+        let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
+        let mut items: Vec<Item> = Vec::new();
+        for row in rows {
+            items.push(serde_json::from_str(&row?)?);
+        }
+        items.sort_by(|left, right| {
+            left.created_at
+                .cmp(&right.created_at)
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        Ok(items)
+    }
+
+    pub fn apply_page(&self, items: &[Item], cursor: &str) -> Result<(), StoreError> {
+        self.transaction(|| {
+            for item in items {
+                let has_pending = self.connection.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM outbox
+                     WHERE item_id = ?1 AND state <> 'acknowledged')",
+                    [&item.id],
+                    |row| row.get::<_, bool>(0),
+                )?;
+                self.save_item(item, "shadow")?;
+                if !has_pending {
+                    self.save_item(item, "items")?;
+                }
+            }
+            self.set_meta("cursor", cursor)
+        })
+    }
+
+    pub fn update_attachment(&self, attachment: &Attachment) -> Result<(), StoreError> {
+        let item_id = self
+            .items()?
+            .into_iter()
+            .find(|item| {
+                item.attachments
+                    .iter()
+                    .any(|candidate| candidate.id == attachment.id)
+            })
+            .map(|item| item.id)
+            .ok_or_else(|| StoreError::NotFound(attachment.id.clone()))?;
+        self.transaction(|| {
+            for table in ["items", "shadow"] {
+                if let Some(mut item) = self.lookup(&item_id, table)? {
+                    if let Some(index) = item
+                        .attachments
+                        .iter()
+                        .position(|candidate| candidate.id == attachment.id)
+                    {
+                        item.attachments[index] = attachment.clone();
+                        self.save_item(&item, table)?;
+                    }
+                }
+            }
+            Ok(())
+        })
+    }
+
     pub fn pending(&self) -> Result<Vec<PendingOperation>, StoreError> {
         let mut statement = self
             .connection

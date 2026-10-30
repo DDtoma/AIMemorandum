@@ -1,0 +1,23 @@
+{
+  "dependency": {
+    "acknowledged_revision": 1,
+    "expected_base_revision": 1,
+    "final_cursor": "7"
+  },
+  "revision_conflict": {
+    "remote_revision": 3,
+    "remote_body_md": "remote"
+  },
+  "item_exists": {
+    "submit_error": "ITEM_EXISTS",
+    "fallback_error": "NOT_FOUND"
+  },
+  "pagination": {
+    "empty_cursor": "0"
+  },
+  "attachment": {
+    "bytes": "abc",
+    "byte_size": 3,
+    "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+  }
+}
