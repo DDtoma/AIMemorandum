@@ -11,8 +11,9 @@ Wayland, fontconfig and OpenSSL development packages. On Ubuntu:
 ```sh
 sudo apt install build-essential pkg-config libdbus-1-dev \
   libpipewire-0.3-dev libspa-0.2-dev libssl-dev \
-  libfontconfig1-dev libwayland-dev libx11-dev libx11-xcb-dev \
-  libxcb1-dev libxcb-randr0-dev libxcb-shm0-dev libxfixes-dev libxrandr-dev
+  libfontconfig1-dev libwayland-dev libegl1-mesa-dev libgl1-mesa-dev \
+  libxkbcommon-dev libx11-dev libx11-xcb-dev libxcb1-dev libxcb-randr0-dev \
+  libxcb-shm0-dev libxfixes-dev libxrandr-dev
 cargo build --release -p aimemorandum-linux
 ```
 
