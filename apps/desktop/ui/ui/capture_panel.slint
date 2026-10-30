@@ -1,0 +1,50 @@
+import { Button, HorizontalBox, LineEdit, TextEdit, VerticalBox } from "std-widgets.slint";
+
+export component CapturePanel inherits Window {
+    title: "快速记录";
+    width: 560px;
+    height: 260px;
+    in-out property <string> draft: "";
+    in property <string> message: "";
+    in property <string> error: "";
+    in property <bool> ime-marked: false;
+    callback draft-changed(string);
+    callback submit();
+    callback capture-key(bool, bool, bool);
+    callback clipboard();
+    callback paths-dropped([string]);
+    callback show-items();
+    callback show-settings();
+
+    VerticalBox {
+        padding: 16px;
+        spacing: 10px;
+        HorizontalBox {
+            Text { text: "新记录"; font-size: 20px; font-weight: 700; horizontal-stretch: 1; }
+            Button { text: "记录列表"; clicked => root.show-items(); }
+            Button { text: "设置"; clicked => root.show-settings(); }
+        }
+        editor := TextEdit {
+            min-height: 110px;
+            placeholder-text: "输入记录；Enter 保存，Shift+Enter 换行";
+            text <=> root.draft;
+            edited(value) => root.draft-changed(value);
+            key-pressed(event) => {
+                if (event.text == Key.Return) {
+                    // Slint maps both main Enter and keypad Enter to Key.Return.
+                    root.capture-key(event.modifiers.shift, root.ime-marked, false);
+                    if (!event.modifiers.shift && !root.ime-marked) { accept } else { reject }
+                } else { reject }
+            }
+        }
+        if root.error != "": Text { text: root.error; color: #c62828; wrap: word-wrap; }
+        if root.message != "": Text { text: root.message; color: #2e7d32; }
+        HorizontalBox {
+            spacing: 8px;
+            Button { text: "保存剪贴板"; clicked => root.clipboard(); }
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: "保存 (Enter)"; primary: true; clicked => root.submit(); }
+        }
+        Text { text: "图片拖放由 Windows/Linux 适配层调用 paths-dropped；当前草稿会随图片一起保存。"; font-size: 11px; color: #666666; wrap: word-wrap; }
+    }
+}

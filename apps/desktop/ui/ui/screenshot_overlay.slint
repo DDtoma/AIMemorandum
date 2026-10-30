@@ -1,0 +1,58 @@
+export component ScreenshotOverlay inherits Window {
+    title: "选择截图区域";
+    no-frame: true;
+    background: transparent;
+    width: 1280px;
+    height: 720px;
+    property <float> start-x: 0;
+    property <float> start-y: 0;
+    property <float> current-x: 0;
+    property <float> current-y: 0;
+    property <bool> selecting: false;
+    callback started(float, float);
+    callback moved(float, float);
+    callback finished(float, float);
+    callback cancelled();
+    Rectangle {
+        background: #00000066;
+        TouchArea {
+            pointer-event(event) => {
+                if (event.kind == PointerEventKind.down) {
+                    root.start-x = self.mouse-x / 1px;
+                    root.start-y = self.mouse-y / 1px;
+                    root.current-x = root.start-x;
+                    root.current-y = root.start-y;
+                    root.selecting = true;
+                    root.started(root.start-x, root.start-y);
+                }
+                if (event.kind == PointerEventKind.up && root.selecting) {
+                    root.current-x = self.mouse-x / 1px;
+                    root.current-y = self.mouse-y / 1px;
+                    root.selecting = false;
+                    root.finished(root.current-x, root.current-y);
+                }
+            }
+            moved => {
+                if (root.selecting) {
+                    root.current-x = self.mouse-x / 1px;
+                    root.current-y = self.mouse-y / 1px;
+                    root.moved(root.current-x, root.current-y);
+                }
+            }
+        }
+        if root.selecting: Rectangle {
+            x: min(root.start-x, root.current-x) * 1px;
+            y: min(root.start-y, root.current-y) * 1px;
+            width: abs(root.current-x - root.start-x) * 1px;
+            height: abs(root.current-y - root.start-y) * 1px;
+            background: #ffffff22;
+            border-color: #ffffff;
+            border-width: 2px;
+        }
+    }
+    FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Escape) { root.cancelled(); accept } else { reject }
+        }
+    }
+}
