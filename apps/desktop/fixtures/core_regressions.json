@@ -1,0 +1,62 @@
+[
+  {
+    "id": "AC-CAP-001",
+    "case": "offline durability",
+    "test": "local_store::ac_cap_001_offline_item_and_outbox_survive_reopen"
+  },
+  {
+    "id": "AC-NOT-001",
+    "case": "complete cancels reminders",
+    "test": "local_store::ac_not_001_complete_disables_reminders_without_changing_due_at"
+  },
+  {
+    "id": "AC-SYNC-002",
+    "case": "preserve local projection",
+    "test": "local_store::ac_sync_002_remote_does_not_overwrite_pending_body_but_updates_shadow"
+  },
+  {
+    "id": "AC-CAP-003",
+    "case": "input composition",
+    "test": "domain_contracts::ac_cap_003_composition_and_shift_do_not_submit"
+  },
+  {
+    "id": "AC-SYNC-001",
+    "case": "push create acknowledged",
+    "test": "sync_engine::ac_sync_001_push_create_is_acknowledged"
+  },
+  {
+    "id": "AC-SYNC-002",
+    "case": "conflict keeps local copy",
+    "test": "sync_engine::ac_sync_002_conflict_keeps_local_copy_and_continues_to_pull"
+  },
+  {
+    "id": "AC-ATT-001",
+    "case": "screenshot uploads ready",
+    "test": "sync_engine::ac_att_001_screenshot_uploads_and_becomes_ready"
+  },
+  {
+    "id": "AC-SYNC-003",
+    "case": "pull applies remote page",
+    "test": "sync_engine::ac_sync_003_pull_applies_remote_page_and_cursor"
+  },
+  {
+    "id": "AC-NOT-001",
+    "case": "scheduler due and fired",
+    "test": "reminder_scheduler::ac_not_001_scheduler_returns_due_reminder_only_once"
+  },
+  {
+    "id": "AC-DOM-003",
+    "case": "delete stops reminders",
+    "test": "local_store::ac_dom_003_delete_disables_reminders_and_queues_delete_action"
+  },
+  {
+    "id": "AC-CAP-004",
+    "case": "ocr body with auto title",
+    "test": "domain_contracts::ac_cap_004_ocr_body_is_retained_and_title_is_generated"
+  },
+  {
+    "id": "AC-DOM-004",
+    "case": "update queues PUT op",
+    "test": "local_store::ac_dom_004_update_queues_put_and_falls_back_to_body_title"
+  }
+]

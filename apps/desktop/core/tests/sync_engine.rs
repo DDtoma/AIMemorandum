@@ -177,7 +177,7 @@ fn item_exists_fallback_temporary_failure_is_not_permanent() {
 }
 
 #[test]
-fn revision_conflict_preserves_local_and_continues_to_pull() {
+fn ac_sync_002_conflict_keeps_local_copy_and_continues_to_pull() {
     let dir = TestDir::new("conflict");
     let store = LocalStore::open(dir.path()).unwrap();
     let original = task("local");
@@ -326,4 +326,65 @@ fn item_exists_fallback_not_found_is_invalid_but_still_pulls() {
     SyncEngine::new(&store, &api).run_once().unwrap();
     assert_eq!(store.pending().unwrap()[0].state, "invalid");
     assert_eq!(&*api.events.borrow(), &["submit", "item", "pull"]);
+}
+
+#[test]
+fn ac_sync_001_push_create_is_acknowledged() {
+    let dir = TestDir::new("ac-sync-001");
+    let store = LocalStore::open(dir.path()).unwrap();
+    let original = task("offline create");
+    let id = original.id.clone();
+    store.create(original.clone()).unwrap();
+    let mut remote = original;
+    remote.revision = 1;
+    let api = FakeApi::default().with_page("0");
+    api.submits.borrow_mut().push_back(Ok(remote.clone()));
+
+    let stats = SyncEngine::new(&store, &api).run_once().unwrap();
+
+    assert_eq!(stats.pushed, 1);
+    assert_eq!(store.item(&id).unwrap().unwrap(), remote);
+    assert!(store.pending().unwrap().is_empty());
+}
+
+#[test]
+fn ac_att_001_screenshot_uploads_and_becomes_ready() {
+    let dir = TestDir::new("ac-att-001");
+    let store = LocalStore::open(dir.path()).unwrap();
+    let item = staged_item(&store, &dir.path().join("source.png"));
+    let api = FakeApi::default().with_page("0");
+    api.uploads.borrow_mut().push_back(Ok(()));
+
+    let stats = SyncEngine::new(&store, &api).run_once().unwrap();
+
+    assert_eq!(stats.uploaded, 1);
+    assert_eq!(
+        store.item(&item.id).unwrap().unwrap().attachments[0].state,
+        "ready"
+    );
+    assert_eq!(
+        store.shadow(&item.id).unwrap().unwrap().attachments[0].state,
+        "ready"
+    );
+    assert_eq!(&*api.events.borrow(), &["upload", "pull"]);
+}
+
+#[test]
+fn ac_sync_003_pull_applies_remote_page_and_cursor() {
+    let dir = TestDir::new("ac-sync-003");
+    let store = LocalStore::open(dir.path()).unwrap();
+    let mut remote = task("remote page");
+    remote.revision = 4;
+    let id = remote.id.clone();
+    let api = FakeApi::default();
+    api.pages.borrow_mut().push_back(Ok(SyncPage {
+        items: vec![remote.clone()],
+        cursor: "17".to_owned(),
+    }));
+
+    let stats = SyncEngine::new(&store, &api).run_once().unwrap();
+
+    assert_eq!(stats.pulled, 1);
+    assert_eq!(store.item(&id).unwrap().unwrap(), remote);
+    assert_eq!(store.meta("cursor").unwrap().as_deref(), Some("17"));
 }
