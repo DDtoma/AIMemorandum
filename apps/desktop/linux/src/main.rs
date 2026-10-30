@@ -100,7 +100,7 @@ mod linux {
     struct IpcService {
         stop: Arc<AtomicBool>,
         primary: Arc<PrimaryInstance>,
-        thread: JoinHandle<()>,
+        thread: Option<JoinHandle<()>>,
     }
 
     impl Drop for IpcService {
@@ -110,7 +110,9 @@ mod linux {
             if let Ok(stream) = UnixStream::connect(self.primary.path()) {
                 let _ = stream.shutdown(std::net::Shutdown::Write);
             }
-            let _ = self.thread.join();
+            if let Some(thread) = self.thread.take() {
+                let _ = thread.join();
+            }
         }
     }
 
@@ -138,7 +140,7 @@ mod linux {
         IpcService {
             stop,
             primary,
-            thread,
+            thread: Some(thread),
         }
     }
 
