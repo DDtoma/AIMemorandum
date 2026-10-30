@@ -1,4 +1,4 @@
-use crate::{set_autostart_at, write_png};
+use crate::{platform_error, set_autostart_at, write_png};
 use aimemorandum_ui::{Clipboard, Clock, DesktopShell, UiError};
 use arboard::{Clipboard as Arboard, ImageData};
 use chrono::{DateTime, Local, TimeZone};
@@ -89,8 +89,4 @@ impl Clock for SystemClock {
     fn timezone(&self) -> String {
         iana_time_zone::get_timezone().unwrap_or_else(|_| "UTC".to_owned())
     }
-}
-
-fn platform_error(error: impl std::fmt::Display) -> UiError {
-    UiError::Platform(error.to_string())
 }

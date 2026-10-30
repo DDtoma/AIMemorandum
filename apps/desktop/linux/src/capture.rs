@@ -1,4 +1,4 @@
-use crate::{LogicalRegion, StaticFrame};
+use crate::{platform_error, LogicalRegion, StaticFrame};
 use aimemorandum_ui::{CaptureRegion, CapturedImage, Screenshot, UiError};
 use image::{ExtendedColorType, ImageEncoder, RgbaImage};
 use std::{
@@ -132,8 +132,4 @@ pub(crate) fn write_png(image: &RgbaImage, directory: &Path) -> Result<CapturedI
         let _ = std::fs::remove_file(temporary);
     }
     result
-}
-
-fn platform_error(error: impl std::fmt::Display) -> UiError {
-    UiError::Platform(error.to_string())
 }

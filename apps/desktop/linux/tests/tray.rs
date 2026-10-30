@@ -1,20 +1,16 @@
-use aimemorandum_linux::{TrayItem, TrayMenuModel};
+use aimemorandum_linux::TrayMenuModel;
+use aimemorandum_ui::TrayEntry;
 
 #[test]
-fn tray_limits_entries_and_unicode_title_length_without_losing_identity() {
-    let items = (0..14)
-        .map(|index| TrayItem {
-            id: format!("任务-{index}-🙂"),
-            title: format!("{index}-{}", "汉🙂".repeat(30)),
-        })
-        .collect::<Vec<_>>();
-    let menu = TrayMenuModel::new(items);
-    assert_eq!(menu.entries().len(), 12);
-    assert!(menu
-        .entries()
-        .iter()
-        .all(|entry| entry.title.chars().count() == 36));
+fn tray_preserves_shared_titles_and_stable_menu_identity() {
+    let shared_title = format!("{}…", "汉🙂".repeat(18));
+    assert_eq!(shared_title.chars().count(), 37);
+    let menu = TrayMenuModel::new(vec![TrayEntry {
+        id: "任务-0-🙂".to_owned(),
+        title: shared_title.clone(),
+    }]);
     let selected = menu.entries().first().unwrap();
+    assert_eq!(selected.title, shared_title);
     assert_eq!(menu.item_for_menu(selected.menu_id), Some("任务-0-🙂"));
     assert_eq!(menu.item_for_menu(9999), None);
 }

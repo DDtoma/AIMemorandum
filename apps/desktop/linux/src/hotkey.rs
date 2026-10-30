@@ -99,7 +99,7 @@ async fn run_portal_shortcuts(events: Sender<ShellEvent>) -> Result<(), String> 
         NewShortcut::new("toggle-panel", "切换记录窗口").preferred_trigger("CTRL+ALT+M"),
         NewShortcut::new("screenshot", "截图").preferred_trigger("CTRL+ALT+S"),
         NewShortcut::new("save-clipboard", "保存剪贴板").preferred_trigger("CTRL+ALT+V"),
-        NewShortcut::new("items", "打开条目").preferred_trigger("CTRL+ALT+L"),
+        NewShortcut::new("items", "查看记录").preferred_trigger("CTRL+ALT+L"),
     ];
     let bound = proxy
         .bind_shortcuts(&session, &shortcuts, None, Default::default())

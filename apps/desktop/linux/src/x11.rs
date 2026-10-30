@@ -1,4 +1,4 @@
-use crate::{FrameProvider, MonitorGeometry, StaticFrame};
+use crate::{platform_error, FrameProvider, MonitorGeometry, StaticFrame};
 use aimemorandum_ui::UiError;
 use xcap::Monitor;
 
@@ -28,8 +28,4 @@ impl FrameProvider for X11FrameProvider {
         let image = monitor.capture_image().map_err(platform_error)?;
         Ok(StaticFrame::new(image, geometry))
     }
-}
-
-fn platform_error(error: impl std::fmt::Display) -> UiError {
-    UiError::Platform(error.to_string())
 }

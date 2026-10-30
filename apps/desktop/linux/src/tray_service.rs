@@ -1,4 +1,4 @@
-use crate::{TrayItem, TrayMenuModel};
+use crate::TrayMenuModel;
 use aimemorandum_ui::{ShellEvent, ViewModel};
 use ksni::{blocking::TrayMethods as _, menu::StandardItem, MenuItem};
 use std::sync::mpsc::{self, Sender, SyncSender, TrySendError};
@@ -12,16 +12,7 @@ struct AppTray {
 impl AppTray {
     fn update(&mut self, view: ViewModel) {
         self.open_count = view.tray.open_count;
-        self.model = TrayMenuModel::new(
-            view.tray
-                .entries
-                .into_iter()
-                .map(|entry| TrayItem {
-                    id: entry.id,
-                    title: entry.title,
-                })
-                .collect(),
-        );
+        self.model = TrayMenuModel::new(view.tray.entries);
     }
 
     fn action(&self, label: impl Into<String>, event: ShellEvent) -> MenuItem<Self> {
@@ -62,7 +53,7 @@ impl ksni::Tray for AppTray {
             ),
             self.action("截图", ShellEvent::Screenshot),
             self.action("保存剪贴板", ShellEvent::SaveClipboard),
-            self.action("条目", ShellEvent::ShowItems),
+            self.action("查看记录", ShellEvent::ShowItems),
             self.action("设置", ShellEvent::ShowSettings),
             MenuItem::Separator,
         ];
@@ -105,10 +96,6 @@ impl TrayService {
             handle.shutdown().wait();
         });
         Ok(Self { updates })
-    }
-
-    pub fn update_sender(&self) -> SyncSender<ViewModel> {
-        self.updates.clone()
     }
 
     pub fn publish(&self, view: &ViewModel) {

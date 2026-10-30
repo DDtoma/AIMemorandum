@@ -1,5 +1,9 @@
 //! Linux executable integration for AIMemorandum.
 
+pub(crate) fn platform_error(error: impl std::fmt::Display) -> aimemorandum_ui::UiError {
+    aimemorandum_ui::UiError::Platform(error.to_string())
+}
+
 mod autostart;
 mod capture;
 mod command;
@@ -41,7 +45,7 @@ pub use platform::{LinuxClipboard, LinuxDesktopShell, SystemClock};
 #[cfg(target_os = "linux")]
 pub use portal::PortalFrameProvider;
 pub use session::{detect_session, detect_session_from, SessionError, SessionKind};
-pub use tray::{TrayItem, TrayMenuEntry, TrayMenuModel};
+pub use tray::{TrayMenuEntry, TrayMenuModel};
 #[cfg(target_os = "linux")]
 pub use tray_service::TrayService;
 #[cfg(target_os = "linux")]

@@ -1,4 +1,4 @@
-use crate::{FrameProvider, MonitorGeometry, StaticFrame};
+use crate::{platform_error, FrameProvider, MonitorGeometry, StaticFrame};
 use aimemorandum_ui::UiError;
 use ashpd::desktop::{
     screencast::{CursorMode, Screencast, SelectSourcesOptions, SourceType},
@@ -41,7 +41,10 @@ impl FrameProvider for PortalFrameProvider {
             .build()
             .map_err(platform_error)?;
         runtime
-            .block_on(capture_once(saved.as_deref(), &self.restore_token_path))
+            .block_on(capture_portal_frame(
+                saved.as_deref(),
+                &self.restore_token_path,
+            ))
             .map_err(platform_error)
     }
 }
@@ -52,7 +55,7 @@ struct Frame {
     rgba: Vec<u8>,
 }
 
-async fn capture_once(
+async fn capture_portal_frame(
     saved_token: Option<&str>,
     token_path: &Path,
 ) -> Result<StaticFrame, Box<dyn Error>> {
@@ -86,7 +89,7 @@ async fn capture_once(
     let fd = portal
         .open_pipe_wire_remote(&session, Default::default())
         .await?;
-    let frame = capture_one(node_id, fd)?;
+    let frame = read_pipewire_frame(node_id, fd)?;
     let _ = session.close().await;
     let (logical_width, logical_height) =
         logical_size.unwrap_or((frame.width as i32, frame.height as i32));
@@ -219,7 +222,7 @@ struct CaptureState {
     result: Rc<RefCell<Option<Result<Frame, String>>>>,
 }
 
-fn capture_one(node_id: u32, fd: OwnedFd) -> Result<Frame, Box<dyn Error>> {
+fn read_pipewire_frame(node_id: u32, fd: OwnedFd) -> Result<Frame, Box<dyn Error>> {
     pw::init();
     let mainloop = Rc::new(pw::main_loop::MainLoopBox::new(None)?);
     let context = pw::context::ContextBox::new(mainloop.loop_(), None)?;
@@ -371,8 +374,4 @@ fn capture_one(node_id: u32, fd: OwnedFd) -> Result<Frame, Box<dyn Error>> {
         Some(Err(error)) => Err(error.into()),
         None => Err("PipeWire stopped without a frame".into()),
     }
-}
-
-fn platform_error(error: impl std::fmt::Display) -> UiError {
-    UiError::Platform(error.to_string())
 }
