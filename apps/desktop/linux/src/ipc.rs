@@ -104,8 +104,14 @@ impl PrimaryInstance {
             let result = (|| {
                 stream.set_read_timeout(Some(Duration::from_secs(5)))?;
                 stream.set_write_timeout(Some(Duration::from_secs(5)))?;
-                let Some(action) = read_action(&mut stream)? else {
-                    return Ok(None);
+                let action = match read_action(&mut stream) {
+                    Ok(Some(action)) => action,
+                    Ok(None) => return Ok(None),
+                    Err(error) => {
+                        let response = format!("error:{}\n", single_line(&error.to_string()));
+                        let _ = stream.write_all(response.as_bytes());
+                        return Err(error);
+                    }
                 };
                 let result = handle
                     .take()
