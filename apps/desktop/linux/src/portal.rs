@@ -66,7 +66,7 @@ async fn capture_portal_frame(
             &session,
             SelectSourcesOptions::default()
                 .set_cursor_mode(CursorMode::Hidden)
-                .set_sources(SourceType::Monitor.into())
+                .set_sources(Some(SourceType::Monitor.into()))
                 .set_multiple(false)
                 .set_persist_mode(PersistMode::ExplicitlyRevoked)
                 .set_restore_token(saved_token),
