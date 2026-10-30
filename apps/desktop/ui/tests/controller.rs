@@ -483,6 +483,7 @@ struct FakeScreenshot {
     regions: std::sync::Arc<std::sync::Mutex<Vec<CaptureRegion>>>,
     full_frames: std::sync::Arc<std::sync::Mutex<usize>>,
     cancellations: std::sync::Arc<std::sync::Mutex<usize>>,
+    releases: std::sync::Arc<std::sync::Mutex<Vec<std::path::PathBuf>>>,
 }
 
 impl Screenshot for FakeScreenshot {
@@ -508,6 +509,10 @@ impl Screenshot for FakeScreenshot {
 
     fn cancel_capture(&self) {
         *self.cancellations.lock().unwrap() += 1;
+    }
+
+    fn release_capture(&self, image: &CapturedImage) {
+        self.releases.lock().unwrap().push(image.path.clone());
     }
 }
 
@@ -569,11 +574,13 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
     let regions = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let full_frames = std::sync::Arc::new(std::sync::Mutex::new(0));
     let cancellations = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let releases = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let screenshot = FakeScreenshot {
-        path: image_path,
+        path: image_path.clone(),
         regions: regions.clone(),
         full_frames: full_frames.clone(),
         cancellations: cancellations.clone(),
+        releases: releases.clone(),
     };
     let store = LocalStore::open(directory.path()).unwrap();
     let mut ui = UiController::new(
@@ -616,6 +623,10 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
         1
     );
     assert_eq!(ui.view().capture.draft, "");
+    assert_eq!(
+        releases.lock().unwrap().as_slice(),
+        std::slice::from_ref(&image_path)
+    );
     assert_eq!(
         LocalStore::open(directory.path()).unwrap().items().unwrap()[0].body_md,
         "未发送草稿"

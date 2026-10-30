@@ -59,6 +59,10 @@ impl ScreenshotAdapter {
         }
     }
 
+    pub fn release_capture(&self, image: &CapturedImage) {
+        let _ = std::fs::remove_file(&image.path);
+    }
+
     pub fn capture(&self, region: CaptureRegion) -> Result<CapturedImage, UiError> {
         let current = self
             .cached
@@ -99,6 +103,10 @@ impl Screenshot for ScreenshotAdapter {
 
     fn cancel_capture(&self) {
         ScreenshotAdapter::cancel_capture(self);
+    }
+
+    fn release_capture(&self, image: &CapturedImage) {
+        ScreenshotAdapter::release_capture(self, image);
     }
 }
 

@@ -58,6 +58,8 @@ fn selection_crops_the_one_cached_frame_and_stages_a_png() {
         (4, 3)
     );
     assert!(!full.path.exists());
+    adapter.release_capture(&selected);
+    assert!(!selected.path.exists());
     assert!(adapter
         .capture(CaptureRegion {
             x: 0.0,

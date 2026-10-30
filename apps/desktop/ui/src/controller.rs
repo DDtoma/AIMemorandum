@@ -474,8 +474,10 @@ where
             return Ok(());
         }
         let image = self.screenshot.capture(region)?;
-        let source = image_source(&image.path, 0)?;
-        self.save_capture("screenshot", vec![source])
+        let result = image_source(&image.path, 0)
+            .and_then(|source| self.save_capture("screenshot", vec![source]));
+        self.screenshot.release_capture(&image);
+        result
     }
 
     fn open_attachment(&mut self, item_id: &str, attachment_id: &str) -> Result<(), UiError> {
