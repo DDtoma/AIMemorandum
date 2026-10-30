@@ -171,7 +171,7 @@ fn read_action(stream: &mut UnixStream) -> Result<Option<CliAction>, IpcError> {
     if frame.is_empty() {
         return Ok(None);
     }
-    decode_command(&frame).map(Some)
+    Ok(decode_command(&frame).map(Some)?)
 }
 
 fn current_uid() -> u32 {
