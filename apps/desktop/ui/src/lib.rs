@@ -4,6 +4,7 @@ mod controller;
 mod error;
 mod intent;
 mod model;
+mod overlay_output;
 mod platform;
 mod slint_shell;
 mod worker;
@@ -12,6 +13,7 @@ pub use controller::UiController;
 pub use error::UiError;
 pub use intent::UiIntent;
 pub use model::*;
+pub use overlay_output::{output_geometry_from_physical, select_overlay_output, OutputMatchError};
 pub use platform::*;
 
 pub use worker::{Controller, UiIntentSender, UiUpdate, UiWorker};

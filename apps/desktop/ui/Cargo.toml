@@ -13,6 +13,7 @@ sha2 = "0.10"
 slint = { version = "1", default-features = false, features = [
   "std",
   "backend-default",
+  "unstable-winit-030",
   "renderer-femtovg",
   "renderer-software",
   "accessibility",

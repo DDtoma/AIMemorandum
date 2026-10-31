@@ -52,6 +52,7 @@ pub enum UiIntent {
         y: f64,
     },
     ScreenshotCancelled,
+    ScreenshotFailed(String),
     Shutdown,
     SettingsChanged {
         server_url: String,

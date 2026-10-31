@@ -1,4 +1,30 @@
-use aimemorandum_linux::{LogicalRegion, MonitorGeometry};
+use aimemorandum_linux::{GeometryError, LogicalRegion, MonitorGeometry};
+
+#[test]
+fn capture_metadata_requires_real_output_position_and_logical_size() {
+    assert_eq!(
+        MonitorGeometry::from_capture_metadata(None, Some((1920, 1080)), 3840, 2160),
+        Err(GeometryError::MissingOutputPosition)
+    );
+    assert_eq!(
+        MonitorGeometry::from_capture_metadata(Some((0, 0)), None, 3840, 2160),
+        Err(GeometryError::MissingLogicalSize)
+    );
+}
+
+#[test]
+fn capture_metadata_preserves_negative_origin_and_fractional_scale() {
+    assert_eq!(
+        MonitorGeometry::from_capture_metadata(Some((-1707, 100)), Some((1707, 960)), 2560, 1440),
+        Ok(MonitorGeometry {
+            x: -1707,
+            y: 100,
+            width: 1707,
+            height: 960,
+            scale_factor: 2560.0 / 1707.0,
+        })
+    );
+}
 
 #[test]
 fn converts_negative_monitor_origins_and_fractional_scale_to_pixels() {

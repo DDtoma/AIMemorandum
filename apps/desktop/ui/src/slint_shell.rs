@@ -1,9 +1,13 @@
 use crate::{ItemFilter, UiError, UiIntent, UiUpdate, UiWorker, ViewModel};
 use aimemorandum_core::SubmitKey;
-use slint::{ComponentHandle, Model, ModelRc, Timer, TimerMode, VecModel};
+use slint::{
+    winit_030::{winit, WinitWindowAccessor},
+    ComponentHandle, Model, ModelRc, Timer, TimerMode, VecModel,
+};
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
+use winit::window::Fullscreen;
 
 slint::include_modules!();
 
@@ -42,6 +46,7 @@ pub struct SlintShell {
     pub screenshot: ScreenshotOverlay,
     sender: crate::UiIntentSender,
     updates: std::sync::mpsc::Receiver<UiUpdate>,
+    target_screenshot_output: bool,
 }
 
 impl SlintShell {
@@ -187,7 +192,14 @@ impl SlintShell {
             screenshot,
             sender,
             updates,
+            target_screenshot_output: false,
         })
+    }
+
+    /// Requires fullscreen overlay routing to the unique captured output (Wayland).
+    pub fn with_targeted_screenshot_output(mut self, enabled: bool) -> Self {
+        self.target_screenshot_output = enabled;
+        self
     }
 
     pub fn sender(&self) -> &crate::UiIntentSender {
@@ -221,6 +233,7 @@ impl SlintShell {
             screenshot,
             sender,
             updates,
+            target_screenshot_output,
         } = self;
         if show_capture {
             capture.show().map_err(platform_error)?;
@@ -228,6 +241,7 @@ impl SlintShell {
         let timer = Timer::default();
         let mut last_view: Option<ViewModel> = None;
         let mut screenshot_image = CachedScreenshot::default();
+        let mut screenshot_route_attempted = false;
         let mut ticks = 0_u64;
         let mut quitting = false;
         timer.start(TimerMode::Repeated, Duration::from_millis(100), move || {
@@ -298,13 +312,18 @@ impl SlintShell {
                     last_view = Some(update.view.clone());
                     observer(&update.view);
                     apply_update(
-                        &capture,
-                        &items,
-                        &reminder,
-                        &settings,
-                        &screenshot,
+                        ShellWindows {
+                            capture: &capture,
+                            items: &items,
+                            reminder: &reminder,
+                            settings: &settings,
+                            screenshot: &screenshot,
+                        },
                         update,
                         &mut screenshot_image,
+                        &mut screenshot_route_attempted,
+                        &sender,
+                        target_screenshot_output,
                     );
                 }
             }
@@ -328,20 +347,34 @@ fn platform_error(error: slint::PlatformError) -> UiError {
     UiError::Platform(error.to_string())
 }
 
+struct ShellWindows<'a> {
+    capture: &'a CapturePanel,
+    items: &'a ItemsWindow,
+    reminder: &'a ReminderPopup,
+    settings: &'a Settings,
+    screenshot: &'a ScreenshotOverlay,
+}
+
 fn apply_update(
-    capture: &CapturePanel,
-    items: &ItemsWindow,
-    reminder: &ReminderPopup,
-    settings: &Settings,
-    screenshot: &ScreenshotOverlay,
+    windows: ShellWindows<'_>,
     update: UiUpdate,
     screenshot_image: &mut CachedScreenshot,
+    screenshot_route_attempted: &mut bool,
+    sender: &crate::UiIntentSender,
+    target_screenshot_output: bool,
 ) {
+    let ShellWindows {
+        capture,
+        items,
+        reminder,
+        settings,
+        screenshot,
+    } = windows;
     let UiUpdate { view, error, .. } = update;
     let screenshot_active = view.screenshot.active || view.screenshot.start_x.is_some();
     capture.set_draft(view.capture.draft.into());
     capture.set_message(view.capture.message.unwrap_or_default().into());
-    capture.set_error(view.capture.error.unwrap_or_default().into());
+    capture.set_error(view.capture.error.as_deref().unwrap_or_default().into());
 
     let rows: Vec<ItemRowData> = view
         .items
@@ -414,20 +447,108 @@ fn apply_update(
 
     screenshot_image.apply(view.screenshot.background.as_deref(), screenshot);
     if screenshot_active {
-        if let Some(display) = view.screenshot.display {
-            // X11 can use the captured output origin; Wayland leaves output choice to the compositor.
-            screenshot
-                .window()
-                .set_position(slint::LogicalPosition::new(
-                    display.x as f32,
-                    display.y as f32,
-                ));
+        if !*screenshot_route_attempted {
+            *screenshot_route_attempted = true;
+            show_screenshot(
+                screenshot,
+                view.screenshot.display,
+                target_screenshot_output,
+                sender,
+            );
         }
-        screenshot.window().set_fullscreen(true);
-        let _ = screenshot.show();
     } else {
+        if *screenshot_route_attempted && view.capture.error.is_some() {
+            let _ = capture.show();
+        }
+        *screenshot_route_attempted = false;
         let _ = screenshot.hide();
     }
+}
+
+fn show_screenshot(
+    screenshot: &ScreenshotOverlay,
+    display: Option<crate::DisplayGeometry>,
+    target_output: bool,
+    sender: &crate::UiIntentSender,
+) {
+    if target_output {
+        show_screenshot_on_captured_output(screenshot, display, sender);
+        return;
+    }
+    if let Some(display) = display {
+        screenshot
+            .window()
+            .set_position(slint::LogicalPosition::new(
+                display.x as f32,
+                display.y as f32,
+            ));
+    }
+    screenshot.window().set_fullscreen(true);
+    let _ = screenshot.show();
+}
+
+fn show_screenshot_on_captured_output(
+    screenshot: &ScreenshotOverlay,
+    display: Option<crate::DisplayGeometry>,
+    sender: &crate::UiIntentSender,
+) {
+    let Some(display) = display else {
+        screenshot_failed(screenshot, sender, "截图缺少显示器几何信息".to_owned());
+        return;
+    };
+    if let Err(error) = screenshot.show() {
+        screenshot_failed(screenshot, sender, format!("无法创建截图叠加层：{error}"));
+        return;
+    }
+    let routed = screenshot.window().with_winit_window(|native| {
+        let monitors = native.available_monitors().collect::<Vec<_>>();
+        let candidates = monitors
+            .iter()
+            .map(|monitor| {
+                let position = monitor.position();
+                let size = monitor.size();
+                crate::output_geometry_from_physical(
+                    position.x,
+                    position.y,
+                    size.width,
+                    size.height,
+                    monitor.scale_factor(),
+                )
+            })
+            .collect::<Option<Vec<_>>>()
+            .ok_or_else(|| "无法换算一个或多个显示器的逻辑几何信息".to_owned())?;
+        let selected =
+            crate::select_overlay_output(display, &candidates).map_err(|error| match error {
+                crate::OutputMatchError::NoMatch => "没有与截图几何信息匹配的显示器".to_owned(),
+                crate::OutputMatchError::Ambiguous { .. } => {
+                    "多个显示器与截图几何信息匹配，无法安全选择".to_owned()
+                }
+            })?;
+        native.set_fullscreen(Some(Fullscreen::Borderless(Some(
+            monitors[selected].clone(),
+        ))));
+        Ok(())
+    });
+    match routed {
+        Some(Ok(())) => {}
+        Some(Err(error)) => screenshot_failed(screenshot, sender, error),
+        None => screenshot_failed(
+            screenshot,
+            sender,
+            "原生窗口尚未就绪，无法选择截图所在显示器".to_owned(),
+        ),
+    }
+}
+
+fn screenshot_failed(
+    screenshot: &ScreenshotOverlay,
+    sender: &crate::UiIntentSender,
+    reason: String,
+) {
+    let _ = screenshot.hide();
+    let _ = sender.send(UiIntent::ScreenshotFailed(format!(
+        "无法将截图叠加层定位到截图所在显示器：{reason}"
+    )));
 }
 
 #[derive(Default)]

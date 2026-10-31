@@ -1,5 +1,7 @@
 use aimemorandum_linux::{FrameProvider, MonitorGeometry, ScreenshotAdapter, StaticFrame};
-use aimemorandum_ui::{CaptureRegion, DisplayGeometry, UiError};
+use aimemorandum_ui::{
+    output_geometry_from_physical, select_overlay_output, CaptureRegion, DisplayGeometry, UiError,
+};
 use image::RgbaImage;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -41,15 +43,18 @@ fn selection_crops_the_one_cached_frame_and_stages_a_png() {
 
     let full = adapter.capture_full().unwrap();
     assert!(full.path.is_file());
-    assert_eq!(
-        adapter.capture_display(),
-        Some(DisplayGeometry {
-            x: -100,
-            y: -50,
-            width: 4,
-            height: 4,
-        })
-    );
+    let captured_display = DisplayGeometry {
+        x: -100,
+        y: -50,
+        width: 4,
+        height: 4,
+    };
+    assert_eq!(adapter.capture_display(), Some(captured_display));
+    let outputs = [
+        output_geometry_from_physical(0, 0, 1920, 1080, 1.0).unwrap(),
+        output_geometry_from_physical(-200, -100, 8, 8, 2.0).unwrap(),
+    ];
+    assert_eq!(select_overlay_output(captured_display, &outputs), Ok(1));
     let selected = adapter
         .capture(CaptureRegion {
             x: 1.0,

@@ -68,7 +68,8 @@ mod linux {
             shell,
             SystemClock,
         )?;
-        let ui = SlintShell::new(controller)?;
+        let ui = SlintShell::new(controller)?
+            .with_targeted_screenshot_output(session == SessionKind::Wayland);
         let (events, receiver) = mpsc::channel::<ShellEvent>();
         let _hotkeys = match start_hotkeys(session, events.clone()) {
             Ok(service) => Some(service),

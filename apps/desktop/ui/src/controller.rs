@@ -176,6 +176,12 @@ where
                 self.view.screenshot = Default::default();
                 Ok(())
             }
+            UiIntent::ScreenshotFailed(message) => {
+                self.screenshot.cancel_capture();
+                self.view.screenshot = Default::default();
+                self.view.capture.error = Some(message);
+                Ok(())
+            }
         }
     }
 

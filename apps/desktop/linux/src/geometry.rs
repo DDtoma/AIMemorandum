@@ -25,6 +25,12 @@ pub struct PhysicalRegion {
 
 #[derive(Debug, thiserror::Error, PartialEq)]
 pub enum GeometryError {
+    #[error("capture metadata did not include the output position")]
+    MissingOutputPosition,
+    #[error("capture metadata did not include the logical output size")]
+    MissingLogicalSize,
+    #[error("captured output has non-uniform scaling")]
+    NonUniformScaling,
     #[error("monitor scale and region coordinates must be finite")]
     NonFinite,
     #[error("region size and monitor scale must be positive")]
@@ -36,6 +42,31 @@ pub enum GeometryError {
 }
 
 impl MonitorGeometry {
+    pub fn from_capture_metadata(
+        position: Option<(i32, i32)>,
+        logical_size: Option<(i32, i32)>,
+        physical_width: u32,
+        physical_height: u32,
+    ) -> Result<Self, GeometryError> {
+        let (x, y) = position.ok_or(GeometryError::MissingOutputPosition)?;
+        let (width, height) = logical_size.ok_or(GeometryError::MissingLogicalSize)?;
+        if width <= 0 || height <= 0 || physical_width == 0 || physical_height == 0 {
+            return Err(GeometryError::NotPositive);
+        }
+        let scale_x = f64::from(physical_width) / f64::from(width);
+        let scale_y = f64::from(physical_height) / f64::from(height);
+        if (scale_x - scale_y).abs() > 0.01 {
+            return Err(GeometryError::NonUniformScaling);
+        }
+        Ok(Self {
+            x,
+            y,
+            width: width as u32,
+            height: height as u32,
+            scale_factor: scale_x,
+        })
+    }
+
     pub fn physical_crop(&self, region: LogicalRegion) -> Result<PhysicalRegion, GeometryError> {
         if ![
             region.x,

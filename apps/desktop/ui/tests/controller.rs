@@ -581,6 +581,44 @@ fn dropped_image_saves_immediately_and_invalid_image_retains_draft() {
 }
 
 #[test]
+fn screenshot_output_failure_cancels_frame_and_surfaces_error() {
+    let directory = tempfile::tempdir().unwrap();
+    let image_path = directory.path().join("screen.png");
+    write_png(&image_path);
+    let cancellations = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let screenshot = FakeScreenshot {
+        path: image_path,
+        regions: Default::default(),
+        full_frames: Default::default(),
+        cancellations: cancellations.clone(),
+        releases: Default::default(),
+    };
+    let mut ui = UiController::new(
+        LocalStore::open(directory.path()).unwrap(),
+        screenshot,
+        NoClipboard,
+        NoEnrollment,
+        NoShell,
+        FixedClock(now()),
+    )
+    .unwrap();
+    ui.dispatch(UiIntent::BeginScreenshot).unwrap();
+
+    ui.dispatch(UiIntent::ScreenshotFailed(
+        "无法匹配截图所在显示器".to_owned(),
+    ))
+    .unwrap();
+
+    assert!(!ui.view().screenshot.active);
+    assert!(ui.view().screenshot.background.is_none());
+    assert_eq!(
+        ui.view().capture.error.as_deref(),
+        Some("无法匹配截图所在显示器")
+    );
+    assert_eq!(*cancellations.lock().unwrap(), 1);
+}
+
+#[test]
 fn screenshot_selection_is_normalized_and_small_selection_cancels() {
     let directory = tempfile::tempdir().unwrap();
     let image_path = directory.path().join("screen.png");
