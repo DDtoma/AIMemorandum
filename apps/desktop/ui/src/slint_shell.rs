@@ -48,6 +48,7 @@ pub struct SlintShell {
     sender: crate::UiIntentSender,
     updates: std::sync::mpsc::Receiver<UiUpdate>,
     screenshot_output_router: Option<Box<dyn ScreenshotOutputRouter>>,
+    screenshot_generation: Rc<Cell<u64>>,
 }
 
 impl SlintShell {
@@ -58,6 +59,7 @@ impl SlintShell {
         let reminder = ReminderPopup::new().map_err(platform_error)?;
         let settings = Settings::new().map_err(platform_error)?;
         let screenshot = ScreenshotOverlay::new().map_err(platform_error)?;
+        let screenshot_generation = Rc::new(Cell::new(0_u64));
 
         capture.on_draft_changed(wire!(&sender, |text| {
             UiIntent::CaptureDraftChanged(text.to_string())
@@ -183,7 +185,19 @@ impl SlintShell {
                 y: y as f64,
             }
         }));
-        screenshot.on_cancelled(wire!(&sender, || UiIntent::ScreenshotCancelled));
+        screenshot.on_cancelled({
+            let sender = sender.clone();
+            let screenshot = screenshot.as_weak();
+            let generation = Rc::clone(&screenshot_generation);
+            move || {
+                generation.set(generation.get().wrapping_add(1));
+                if let Some(screenshot) = screenshot.upgrade() {
+                    screenshot.set_output_ready(false);
+                    let _ = screenshot.hide();
+                }
+                let _ = sender.send(UiIntent::ScreenshotCancelled);
+            }
+        });
 
         Ok(Self {
             capture,
@@ -194,6 +208,7 @@ impl SlintShell {
             sender,
             updates,
             screenshot_output_router: None,
+            screenshot_generation,
         })
     }
 
@@ -238,6 +253,7 @@ impl SlintShell {
             sender,
             updates,
             screenshot_output_router,
+            screenshot_generation,
         } = self;
         if show_capture {
             capture.show().map_err(platform_error)?;
@@ -247,8 +263,7 @@ impl SlintShell {
         let mut screenshot_image = CachedScreenshot::default();
         let mut screenshot_state = ScreenshotWindowState::default();
         let mut screenshot_route_pending = None;
-        let latest_screenshot_generation = Rc::new(Cell::new(0_u64));
-        let shell_screenshot_generation = Rc::clone(&latest_screenshot_generation);
+        let shell_screenshot_generation = screenshot_generation;
         let mut ticks = 0_u64;
         let mut quitting = false;
         timer.start(TimerMode::Repeated, Duration::from_millis(100), move || {
@@ -304,6 +319,11 @@ impl SlintShell {
                         ShellEvent::Quit => {
                             if !quitting {
                                 quitting = true;
+                                shell_screenshot_generation
+                                    .set(shell_screenshot_generation.get().wrapping_add(1));
+                                screenshot_route_pending = None;
+                                screenshot_state.invalidate_for_recapture();
+                                screenshot.set_output_ready(false);
                                 let _ = capture.hide();
                                 let _ = items.hide();
                                 let _ = reminder.hide();

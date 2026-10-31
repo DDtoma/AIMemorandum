@@ -635,6 +635,43 @@ fn stale_screenshot_output_failure_cannot_cancel_a_newer_frame() {
 }
 
 #[test]
+fn screenshot_failure_after_cancellation_is_ignored() {
+    let directory = tempfile::tempdir().unwrap();
+    let image_path = directory.path().join("screen.png");
+    write_png(&image_path);
+    let cancellations = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let screenshot = FakeScreenshot {
+        path: image_path,
+        regions: Default::default(),
+        full_frames: Default::default(),
+        cancellations: cancellations.clone(),
+        releases: Default::default(),
+    };
+    let mut ui = UiController::new(
+        LocalStore::open(directory.path()).unwrap(),
+        screenshot,
+        NoClipboard,
+        NoEnrollment,
+        NoShell,
+        FixedClock(now()),
+    )
+    .unwrap();
+    ui.dispatch(UiIntent::BeginScreenshot { generation: 1 })
+        .unwrap();
+    ui.dispatch(UiIntent::ScreenshotCancelled).unwrap();
+
+    ui.dispatch(UiIntent::ScreenshotFailed {
+        generation: 1,
+        message: "取消后抵达的旧路由失败".to_owned(),
+    })
+    .unwrap();
+
+    assert!(!ui.view().screenshot.active);
+    assert_eq!(ui.view().capture.error, None);
+    assert_eq!(*cancellations.lock().unwrap(), 1);
+}
+
+#[test]
 fn screenshot_selection_is_normalized_and_small_selection_cancels() {
     let directory = tempfile::tempdir().unwrap();
     let image_path = directory.path().join("screen.png");

@@ -177,6 +177,7 @@ where
             }
             UiIntent::ScreenshotFinished { x, y } => self.finish_screenshot(x, y),
             UiIntent::ScreenshotCancelled | UiIntent::Shutdown => {
+                self.screenshot_generation = self.screenshot_generation.wrapping_add(1);
                 self.screenshot.cancel_capture();
                 self.view.screenshot = Default::default();
                 Ok(())
