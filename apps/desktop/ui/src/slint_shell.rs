@@ -262,6 +262,12 @@ impl SlintShell {
                             }
                         }
                         ShellEvent::Screenshot => {
+                            // Stop any old-output attempt before BeginScreenshot can
+                            // block the worker; its failure must never cancel the new frame.
+                            screenshot_route_pending = false;
+                            screenshot_state.invalidate_for_recapture();
+                            screenshot.set_output_ready(false);
+                            let _ = screenshot.hide();
                             let _ = capture.hide();
                             let _ = items.hide();
                             let _ = reminder.hide();

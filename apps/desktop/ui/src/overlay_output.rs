@@ -54,6 +54,12 @@ impl ScreenshotWindowState {
         self.display = display;
         ScreenshotWindowAction::Show
     }
+
+    /// Invalidates pending native routing as soon as a recapture is requested.
+    pub fn invalidate_for_recapture(&mut self) {
+        self.shown = false;
+        self.display = None;
+    }
 }
 
 /// Requests are asynchronous on Wayland; only actual output and size confirm readiness.
