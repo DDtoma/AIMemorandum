@@ -4,7 +4,9 @@ use crate::{
 };
 use aimemorandum_core::SubmitKey;
 use slint::{ComponentHandle, Model, ModelRc, Timer, TimerMode, VecModel};
+use std::cell::Cell;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
@@ -244,7 +246,9 @@ impl SlintShell {
         let mut last_view: Option<ViewModel> = None;
         let mut screenshot_image = CachedScreenshot::default();
         let mut screenshot_state = ScreenshotWindowState::default();
-        let mut screenshot_route_pending = false;
+        let mut screenshot_route_pending = None;
+        let latest_screenshot_generation = Rc::new(Cell::new(0_u64));
+        let shell_screenshot_generation = Rc::clone(&latest_screenshot_generation);
         let mut ticks = 0_u64;
         let mut quitting = false;
         timer.start(TimerMode::Repeated, Duration::from_millis(100), move || {
@@ -262,9 +266,11 @@ impl SlintShell {
                             }
                         }
                         ShellEvent::Screenshot => {
-                            // Stop any old-output attempt before BeginScreenshot can
-                            // block the worker; its failure must never cancel the new frame.
-                            screenshot_route_pending = false;
+                            // Invalidate old updates and delayed requests immediately. Only
+                            // this generation may arm routing or report a routing failure.
+                            let generation = shell_screenshot_generation.get().wrapping_add(1);
+                            shell_screenshot_generation.set(generation);
+                            screenshot_route_pending = None;
                             screenshot_state.invalidate_for_recapture();
                             screenshot.set_output_ready(false);
                             let _ = screenshot.hide();
@@ -273,8 +279,12 @@ impl SlintShell {
                             let _ = reminder.hide();
                             let _ = settings.hide();
                             let screenshot_sender = sender.clone();
+                            let requested_generation = Rc::clone(&shell_screenshot_generation);
                             Timer::single_shot(Duration::from_millis(150), move || {
-                                let _ = screenshot_sender.send(UiIntent::BeginScreenshot);
+                                if requested_generation.get() == generation {
+                                    let _ = screenshot_sender
+                                        .send(UiIntent::BeginScreenshot { generation });
+                                }
                             });
                         }
                         ShellEvent::SaveClipboard => {
@@ -329,32 +339,36 @@ impl SlintShell {
                             screenshot: &screenshot,
                         },
                         update,
-                        &mut screenshot_image,
-                        &mut screenshot_state,
-                        &mut screenshot_route_pending,
+                        &mut ScreenshotUpdateState {
+                            image: &mut screenshot_image,
+                            window: &mut screenshot_state,
+                            route_pending: &mut screenshot_route_pending,
+                            latest_generation: shell_screenshot_generation.get(),
+                        },
                         &sender,
                         screenshot_output_router.is_some(),
                     );
                 }
             }
-            // Route only the latest applied capture. A stale failure must not
-            // cancel a newer recapture whose update is already queued.
-            if screenshot_route_pending {
-                let display = last_view.as_ref().and_then(|view| view.screenshot.display);
-                let routed = match (screenshot_output_router.as_ref(), display) {
-                    (Some(router), Some(display)) => router.route(screenshot.window(), display),
-                    (None, _) => Err("截图输出路由器不可用".to_owned()),
-                    (_, None) => Err("截图缺少显示器几何信息".to_owned()),
-                };
-                match routed {
-                    Ok(OutputRoute::Pending) => {}
-                    Ok(OutputRoute::Routed) => {
-                        screenshot_route_pending = false;
-                        screenshot.set_output_ready(true);
-                    }
-                    Err(error) => {
-                        screenshot_route_pending = false;
-                        screenshot_failed(&screenshot, &sender, error);
+            // A delayed update from an older request can never re-arm routing.
+            if let Some(route) = screenshot_route_pending {
+                if route.generation != shell_screenshot_generation.get() {
+                    screenshot_route_pending = None;
+                } else {
+                    let routed = match screenshot_output_router.as_ref() {
+                        Some(router) => router.route(screenshot.window(), route.display),
+                        None => Err("截图输出路由器不可用".to_owned()),
+                    };
+                    match routed {
+                        Ok(OutputRoute::Pending) => {}
+                        Ok(OutputRoute::Routed) => {
+                            screenshot_route_pending = None;
+                            screenshot.set_output_ready(true);
+                        }
+                        Err(error) => {
+                            screenshot_route_pending = None;
+                            screenshot_failed(&screenshot, &sender, route.generation, error);
+                        }
                     }
                 }
             }
@@ -386,15 +400,36 @@ struct ShellWindows<'a> {
     screenshot: &'a ScreenshotOverlay,
 }
 
+#[derive(Clone, Copy)]
+struct PendingScreenshotRoute {
+    generation: u64,
+    display: crate::DisplayGeometry,
+}
+
+struct ScreenshotUpdateState<'a> {
+    image: &'a mut CachedScreenshot,
+    window: &'a mut ScreenshotWindowState,
+    route_pending: &'a mut Option<PendingScreenshotRoute>,
+    latest_generation: u64,
+}
+
 fn apply_update(
     windows: ShellWindows<'_>,
     update: UiUpdate,
-    screenshot_image: &mut CachedScreenshot,
-    screenshot_state: &mut ScreenshotWindowState,
-    screenshot_route_pending: &mut bool,
+    screenshot_update: &mut ScreenshotUpdateState<'_>,
     sender: &crate::UiIntentSender,
     route_screenshot_output: bool,
 ) {
+    let ScreenshotUpdateState {
+        image: screenshot_image,
+        window: screenshot_state,
+        route_pending: screenshot_route_pending,
+        latest_generation: latest_screenshot_generation,
+    } = screenshot_update;
+    let screenshot_image = &mut *screenshot_image;
+    let screenshot_state = &mut *screenshot_state;
+    let screenshot_route_pending = &mut **screenshot_route_pending;
+    let latest_screenshot_generation = *latest_screenshot_generation;
     let ShellWindows {
         capture,
         items,
@@ -403,6 +438,7 @@ fn apply_update(
         screenshot,
     } = windows;
     let UiUpdate { view, error, .. } = update;
+    let screenshot_current = view.screenshot.generation == latest_screenshot_generation;
     let screenshot_active = view.screenshot.active || view.screenshot.start_x.is_some();
     capture.set_draft(view.capture.draft.into());
     capture.set_message(view.capture.message.unwrap_or_default().into());
@@ -477,20 +513,31 @@ fn apply_update(
     settings.set_message(view.settings.message.unwrap_or_default().into());
     settings.set_error(view.settings.error.unwrap_or_default().into());
 
-    screenshot_image.apply(view.screenshot.background.as_deref(), screenshot);
-    match screenshot_state.synchronize(screenshot_active, view.screenshot.display) {
+    screenshot_image.apply(
+        screenshot_current
+            .then_some(view.screenshot.background.as_deref())
+            .flatten(),
+        screenshot,
+    );
+    match screenshot_state.synchronize_current(
+        screenshot_active,
+        view.screenshot.display,
+        view.screenshot.generation,
+        latest_screenshot_generation,
+    ) {
         ScreenshotWindowAction::Show => show_screenshot(
             screenshot,
             view.screenshot.display,
             route_screenshot_output,
             sender,
             screenshot_route_pending,
+            view.screenshot.generation,
         ),
         ScreenshotWindowAction::Hide => {
             if view.capture.error.is_some() {
                 let _ = capture.show();
             }
-            *screenshot_route_pending = false;
+            *screenshot_route_pending = None;
             screenshot.set_output_ready(true);
             let _ = screenshot.hide();
         }
@@ -503,23 +550,39 @@ fn show_screenshot(
     display: Option<crate::DisplayGeometry>,
     route_output: bool,
     sender: &crate::UiIntentSender,
-    route_pending: &mut bool,
+    route_pending: &mut Option<PendingScreenshotRoute>,
+    generation: u64,
 ) {
     if route_output {
-        if display.is_none() {
-            screenshot_failed(screenshot, sender, "截图缺少显示器几何信息".to_owned());
+        let Some(display) = display else {
+            screenshot_failed(
+                screenshot,
+                sender,
+                generation,
+                "截图缺少显示器几何信息".to_owned(),
+            );
             return;
-        }
+        };
         screenshot.set_output_ready(false);
         match screenshot.show() {
-            Ok(()) => *route_pending = true,
+            Ok(()) => {
+                *route_pending = Some(PendingScreenshotRoute {
+                    generation,
+                    display,
+                });
+            }
             Err(error) => {
-                screenshot_failed(screenshot, sender, format!("无法创建截图叠加层：{error}"));
+                screenshot_failed(
+                    screenshot,
+                    sender,
+                    generation,
+                    format!("无法创建截图叠加层：{error}"),
+                );
             }
         }
         return;
     }
-    *route_pending = false;
+    *route_pending = None;
     screenshot.set_output_ready(true);
     if let Some(display) = display {
         screenshot
@@ -536,12 +599,14 @@ fn show_screenshot(
 fn screenshot_failed(
     screenshot: &ScreenshotOverlay,
     sender: &crate::UiIntentSender,
+    generation: u64,
     reason: String,
 ) {
     let _ = screenshot.hide();
-    let _ = sender.send(UiIntent::ScreenshotFailed(format!(
-        "无法将截图叠加层定位到截图所在显示器：{reason}"
-    )));
+    let _ = sender.send(UiIntent::ScreenshotFailed {
+        generation,
+        message: format!("无法将截图叠加层定位到截图所在显示器：{reason}"),
+    });
 }
 
 #[derive(Default)]

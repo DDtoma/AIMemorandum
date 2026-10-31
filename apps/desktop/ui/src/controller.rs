@@ -24,6 +24,7 @@ pub struct UiController<S, C, E, D, K> {
     shell: D,
     clock: K,
     view: ViewModel,
+    screenshot_generation: u64,
 }
 
 impl<S, C, E, D, K> UiController<S, C, E, D, K>
@@ -50,6 +51,7 @@ where
             shell,
             clock,
             view: ViewModel::default(),
+            screenshot_generation: 0,
         };
         controller.load_settings()?;
         controller.refresh_items()?;
@@ -155,7 +157,10 @@ where
                 item_id,
                 attachment_id,
             } => self.open_attachment(&item_id, &attachment_id),
-            UiIntent::BeginScreenshot => self.begin_screenshot(),
+            UiIntent::BeginScreenshot { generation } => {
+                self.screenshot_generation = generation;
+                self.begin_screenshot(generation)
+            }
             UiIntent::ScreenshotStarted { x, y } => {
                 self.view.screenshot.start_x = Some(x);
                 self.view.screenshot.start_y = Some(y);
@@ -176,7 +181,13 @@ where
                 self.view.screenshot = Default::default();
                 Ok(())
             }
-            UiIntent::ScreenshotFailed(message) => {
+            UiIntent::ScreenshotFailed {
+                generation,
+                message,
+            } => {
+                if generation != self.screenshot_generation {
+                    return Ok(());
+                }
                 self.screenshot.cancel_capture();
                 self.view.screenshot = Default::default();
                 self.view.capture.error = Some(message);
@@ -447,8 +458,9 @@ where
         Err(error)
     }
 
-    fn begin_screenshot(&mut self) -> Result<(), UiError> {
+    fn begin_screenshot(&mut self, generation: u64) -> Result<(), UiError> {
         let image = self.screenshot.capture_full()?;
+        self.view.screenshot.generation = generation;
         self.view.screenshot.display = self.screenshot.capture_display();
         self.view.screenshot.active = true;
         self.view.screenshot.background = Some(image.path);

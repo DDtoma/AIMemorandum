@@ -38,7 +38,9 @@ pub enum UiIntent {
     CompleteReminder,
     SnoozeReminder,
     DismissReminder,
-    BeginScreenshot,
+    BeginScreenshot {
+        generation: u64,
+    },
     ScreenshotStarted {
         x: f64,
         y: f64,
@@ -52,7 +54,10 @@ pub enum UiIntent {
         y: f64,
     },
     ScreenshotCancelled,
-    ScreenshotFailed(String),
+    ScreenshotFailed {
+        generation: u64,
+        message: String,
+    },
     Shutdown,
     SettingsChanged {
         server_url: String,

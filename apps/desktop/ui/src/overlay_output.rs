@@ -55,6 +55,17 @@ impl ScreenshotWindowState {
         ScreenshotWindowAction::Show
     }
 
+    /// Applies only the latest request; an older capture update cannot re-arm routing.
+    pub fn synchronize_current(
+        &mut self,
+        active: bool,
+        display: Option<DisplayGeometry>,
+        generation: u64,
+        latest_generation: u64,
+    ) -> ScreenshotWindowAction {
+        self.synchronize(active && generation == latest_generation, display)
+    }
+
     /// Invalidates pending native routing as soon as a recapture is requested.
     pub fn invalidate_for_recapture(&mut self) {
         self.shown = false;

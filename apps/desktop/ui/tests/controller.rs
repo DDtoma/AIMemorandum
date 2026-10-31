@@ -582,7 +582,7 @@ fn dropped_image_saves_immediately_and_invalid_image_retains_draft() {
 }
 
 #[test]
-fn screenshot_output_failure_cancels_frame_and_surfaces_error() {
+fn stale_screenshot_output_failure_cannot_cancel_a_newer_frame() {
     let directory = tempfile::tempdir().unwrap();
     let image_path = directory.path().join("screen.png");
     write_png(&image_path);
@@ -603,11 +603,26 @@ fn screenshot_output_failure_cancels_frame_and_surfaces_error() {
         FixedClock(now()),
     )
     .unwrap();
-    ui.dispatch(UiIntent::BeginScreenshot).unwrap();
+    ui.dispatch(UiIntent::BeginScreenshot { generation: 1 })
+        .unwrap();
+    ui.dispatch(UiIntent::BeginScreenshot { generation: 2 })
+        .unwrap();
+    assert_eq!(ui.view().screenshot.generation, 2);
 
-    ui.dispatch(UiIntent::ScreenshotFailed(
-        "无法匹配截图所在显示器".to_owned(),
-    ))
+    ui.dispatch(UiIntent::ScreenshotFailed {
+        generation: 1,
+        message: "旧输出匹配失败".to_owned(),
+    })
+    .unwrap();
+    assert!(ui.view().screenshot.active);
+    assert_eq!(ui.view().screenshot.generation, 2);
+    assert_eq!(ui.view().capture.error, None);
+    assert_eq!(*cancellations.lock().unwrap(), 0);
+
+    ui.dispatch(UiIntent::ScreenshotFailed {
+        generation: 2,
+        message: "无法匹配截图所在显示器".to_owned(),
+    })
     .unwrap();
 
     assert!(!ui.view().screenshot.active);
@@ -648,7 +663,8 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
 
     ui.dispatch(UiIntent::CaptureDraftChanged("未发送草稿".to_owned()))
         .unwrap();
-    ui.dispatch(UiIntent::BeginScreenshot).unwrap();
+    ui.dispatch(UiIntent::BeginScreenshot { generation: 1 })
+        .unwrap();
     assert!(ui.view().screenshot.active);
     assert!(ui.view().screenshot.background.is_some());
     assert_eq!(
@@ -711,7 +727,8 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
     assert!(ui.view().screenshot.start_x.is_none());
     assert_eq!(*cancellations.lock().unwrap(), 1);
 
-    ui.dispatch(UiIntent::BeginScreenshot).unwrap();
+    ui.dispatch(UiIntent::BeginScreenshot { generation: 1 })
+        .unwrap();
     ui.dispatch(UiIntent::ScreenshotCancelled).unwrap();
     assert_eq!(*cancellations.lock().unwrap(), 2);
     assert!(!ui.view().screenshot.active);

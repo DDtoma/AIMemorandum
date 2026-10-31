@@ -164,6 +164,37 @@ fn recapture_invalidates_pending_routing_even_on_the_same_output() {
 }
 
 #[test]
+fn continuous_recapture_never_rearms_an_old_capture_update() {
+    let first = display(0, 0, 1920, 1080);
+    let second = display(1920, 0, 2560, 1440);
+    let mut state = ScreenshotWindowState::default();
+    assert_eq!(
+        state.synchronize_current(true, Some(first), 1, 1),
+        ScreenshotWindowAction::Show
+    );
+
+    state.invalidate_for_recapture();
+    assert_eq!(
+        state.synchronize_current(true, Some(first), 1, 2),
+        ScreenshotWindowAction::None
+    );
+    assert_eq!(
+        state.synchronize_current(true, Some(second), 2, 2),
+        ScreenshotWindowAction::Show
+    );
+
+    state.invalidate_for_recapture();
+    assert_eq!(
+        state.synchronize_current(true, Some(second), 2, 3),
+        ScreenshotWindowAction::None
+    );
+    assert_eq!(
+        state.synchronize_current(true, Some(first), 3, 3),
+        ScreenshotWindowAction::Show
+    );
+}
+
+#[test]
 fn rejects_zero_sized_and_overflowing_output_geometry() {
     assert_eq!(
         output_geometry_for_capture(0, 0, 0, 1080, 1.0, with_scale(1.0)),

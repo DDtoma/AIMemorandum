@@ -106,6 +106,7 @@ pub struct TrayModel {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ScreenshotOverlayModel {
+    pub generation: u64,
     pub active: bool,
     pub background: Option<PathBuf>,
     pub display: Option<DisplayGeometry>,
