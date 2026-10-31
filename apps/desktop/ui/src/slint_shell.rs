@@ -248,25 +248,6 @@ impl SlintShell {
         let mut ticks = 0_u64;
         let mut quitting = false;
         timer.start(TimerMode::Repeated, Duration::from_millis(100), move || {
-            if screenshot_route_pending {
-                let display = last_view.as_ref().and_then(|view| view.screenshot.display);
-                let routed = match (screenshot_output_router.as_ref(), display) {
-                    (Some(router), Some(display)) => router.route(screenshot.window(), display),
-                    (None, _) => Err("截图输出路由器不可用".to_owned()),
-                    (_, None) => Err("截图缺少显示器几何信息".to_owned()),
-                };
-                match routed {
-                    Ok(OutputRoute::Pending) => {}
-                    Ok(OutputRoute::Routed) => {
-                        screenshot_route_pending = false;
-                        screenshot.set_output_ready(true);
-                    }
-                    Err(error) => {
-                        screenshot_route_pending = false;
-                        screenshot_failed(&screenshot, &sender, error);
-                    }
-                }
-            }
             if let Some(events) = events.as_mut() {
                 while let Ok(event) = events.try_recv() {
                     match event {
@@ -348,6 +329,27 @@ impl SlintShell {
                         &sender,
                         screenshot_output_router.is_some(),
                     );
+                }
+            }
+            // Route only the latest applied capture. A stale failure must not
+            // cancel a newer recapture whose update is already queued.
+            if screenshot_route_pending {
+                let display = last_view.as_ref().and_then(|view| view.screenshot.display);
+                let routed = match (screenshot_output_router.as_ref(), display) {
+                    (Some(router), Some(display)) => router.route(screenshot.window(), display),
+                    (None, _) => Err("截图输出路由器不可用".to_owned()),
+                    (_, None) => Err("截图缺少显示器几何信息".to_owned()),
+                };
+                match routed {
+                    Ok(OutputRoute::Pending) => {}
+                    Ok(OutputRoute::Routed) => {
+                        screenshot_route_pending = false;
+                        screenshot.set_output_ready(true);
+                    }
+                    Err(error) => {
+                        screenshot_route_pending = false;
+                        screenshot_failed(&screenshot, &sender, error);
+                    }
                 }
             }
             ticks += 1;

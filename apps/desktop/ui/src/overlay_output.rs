@@ -58,15 +58,12 @@ impl ScreenshotWindowState {
 
 /// Requests are asynchronous on Wayland; only actual output and size confirm readiness.
 pub fn output_configuration_ready(
-    current_output: Option<u32>,
-    fullscreen_output: Option<u32>,
-    target_output: u32,
+    current_output_matches: bool,
+    fullscreen_output_matches: bool,
     window_size: (u32, u32),
     output_size: (u32, u32),
 ) -> bool {
-    current_output == Some(target_output)
-        && fullscreen_output == Some(target_output)
-        && window_size == output_size
+    current_output_matches && fullscreen_output_matches && window_size == output_size
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

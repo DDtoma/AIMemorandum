@@ -38,18 +38,16 @@ impl ScreenshotOutputRouter for WaylandOutputRouter {
                     }
                 })?;
             let target = &monitors[selected];
-            let fullscreen_output = match native.fullscreen() {
-                Some(Fullscreen::Borderless(Some(monitor))) => Some(monitor.native_identifier()),
-                _ => None,
+            let fullscreen_output_matches = match native.fullscreen() {
+                Some(Fullscreen::Borderless(Some(monitor))) => monitor == *target,
+                _ => false,
             };
+            let current_output_matches = native.current_monitor().as_ref() == Some(target);
             let window_size = native.inner_size();
             let output_size = target.size();
             if output_configuration_ready(
-                native
-                    .current_monitor()
-                    .map(|monitor| monitor.native_identifier()),
-                fullscreen_output,
-                target.native_identifier(),
+                current_output_matches,
+                fullscreen_output_matches,
                 (window_size.width, window_size.height),
                 (output_size.width, output_size.height),
             ) {

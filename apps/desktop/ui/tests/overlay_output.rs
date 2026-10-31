@@ -100,33 +100,23 @@ fn accepts_one_logical_pixel_of_rounding_but_not_two() {
 
 #[test]
 fn requires_compositor_confirmation_before_enabling_crop() {
-    let ready = output_configuration_ready(Some(7), Some(7), 7, (2560, 1440), (2560, 1440));
+    let ready = output_configuration_ready(true, true, (2560, 1440), (2560, 1440));
     assert!(ready);
     assert!(!output_configuration_ready(
-        None,
-        Some(7),
-        7,
+        false,
+        true,
         (2560, 1440),
         (2560, 1440)
     ));
     assert!(!output_configuration_ready(
-        Some(7),
-        None,
-        7,
+        true,
+        false,
         (2560, 1440),
         (2560, 1440)
     ));
     assert!(!output_configuration_ready(
-        Some(7),
-        Some(8),
-        7,
-        (2560, 1440),
-        (2560, 1440)
-    ));
-    assert!(!output_configuration_ready(
-        Some(7),
-        Some(7),
-        7,
+        true,
+        true,
         (1280, 720),
         (2560, 1440)
     ));
