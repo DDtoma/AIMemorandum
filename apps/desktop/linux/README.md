@@ -25,12 +25,15 @@ usual `/usr/local/bin`, `/usr/local/share/applications` and
 ## Session integration
 
 - X11 uses `xcap` and `global-hotkey` (`Ctrl+Alt+M/S/V/L`).
-- Wayland uses the XDG ScreenCast portal and one PipeWire static frame. The
-  GNOME/KDE candidate requests fullscreen on the captured winit `MonitorHandle`.
+- Wayland uses the XDG ScreenCast portal and one PipeWire static frame. A
+  Linux-only router waits for native-window readiness, then requests fullscreen
+  on the captured winit `MonitorHandle`; selection is disabled while it waits.
   A unique logical-geometry match (one logical pixel tolerance) selects that
-  handle; missing/ambiguous matches, missing portal output metadata, or invalid
-  scaling fail closed instead of displaying an overlay on an arbitrary output.
-  Cropping continues to use the captured monitor's origin and scale. KDE
+  handle. Native output geometry is converted with the capture-derived
+  physical/logical scale, not winit's integer Wayland output scale.
+  Missing/ambiguous matches, missing portal output metadata, or invalid scaling
+  fail closed instead of displaying an overlay on an arbitrary output.
+  Cropping continues to use the same captured monitor origin and scale. KDE
   layer-shell is not integrated, and real compositor/output behavior still
   requires the multi-monitor acceptance matrix below.
 - The tray is a StatusNotifierItem. GNOME requires an AppIndicator/KStatusNotifier

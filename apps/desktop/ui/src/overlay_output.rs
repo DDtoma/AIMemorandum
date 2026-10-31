@@ -3,6 +3,21 @@ use std::fmt;
 
 const LOGICAL_TOLERANCE: i64 = 1;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutputRoute {
+    Pending,
+    Routed,
+}
+
+/// Platform hook that places an already-created overlay on its captured output.
+pub trait ScreenshotOutputRouter {
+    fn route(
+        &self,
+        window: &slint::Window,
+        captured: DisplayGeometry,
+    ) -> Result<OutputRoute, String>;
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OutputMatchError {
     NoMatch,
@@ -25,14 +40,18 @@ impl fmt::Display for OutputMatchError {
 
 impl std::error::Error for OutputMatchError {}
 
-/// Converts winit's physical output geometry into the compositor's logical coordinates.
-pub fn output_geometry_from_physical(
+/// Converts physical output geometry using the captured frame's scale.
+///
+/// Winit's Wayland output scale can be an integer even when ScreenCast and the
+/// window use fractional scaling, so it is not a valid conversion source here.
+pub fn output_geometry_for_capture(
     x: i32,
     y: i32,
     width: u32,
     height: u32,
-    scale_factor: f64,
+    captured: DisplayGeometry,
 ) -> Option<DisplayGeometry> {
+    let scale_factor = captured.scale_factor;
     if !scale_factor.is_finite() || scale_factor <= 0.0 {
         return None;
     }
@@ -56,6 +75,7 @@ pub fn output_geometry_from_physical(
         y: logical_y as i32,
         width: logical_width as u32,
         height: logical_height as u32,
+        scale_factor,
     })
 }
 

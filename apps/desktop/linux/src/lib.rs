@@ -26,6 +26,8 @@ mod portal;
 #[cfg(target_os = "linux")]
 mod tray_service;
 #[cfg(target_os = "linux")]
+mod wayland_overlay;
+#[cfg(target_os = "linux")]
 mod x11;
 
 pub use autostart::set_autostart_at;
@@ -50,5 +52,7 @@ pub use session::{detect_session, detect_session_from, SessionError, SessionKind
 pub use tray::{TrayMenuEntry, TrayMenuModel};
 #[cfg(target_os = "linux")]
 pub use tray_service::TrayService;
+#[cfg(target_os = "linux")]
+pub use wayland_overlay::WaylandOutputRouter;
 #[cfg(target_os = "linux")]
 pub use x11::X11FrameProvider;

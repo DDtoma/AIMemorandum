@@ -15,7 +15,7 @@ mod linux {
         autostart_path, data_dir, detect_session, send_command, socket_path, start_hotkeys,
         CliAction, FrameProvider, IpcError, LinuxClipboard, LinuxDesktopShell, PortalFrameProvider,
         PrimaryInstance, ScreenshotAdapter, SessionKind, SystemClock, TrayService,
-        X11FrameProvider,
+        WaylandOutputRouter, X11FrameProvider,
     };
     use aimemorandum_ui::{CoreEnrollment, ShellEvent, SlintShell, UiController};
     use std::{
@@ -68,8 +68,12 @@ mod linux {
             shell,
             SystemClock,
         )?;
-        let ui = SlintShell::new(controller)?
-            .with_targeted_screenshot_output(session == SessionKind::Wayland);
+        let ui = SlintShell::new(controller)?;
+        let ui = if session == SessionKind::Wayland {
+            ui.with_screenshot_output_router(Box::new(WaylandOutputRouter))
+        } else {
+            ui
+        };
         let (events, receiver) = mpsc::channel::<ShellEvent>();
         let _hotkeys = match start_hotkeys(session, events.clone()) {
             Ok(service) => Some(service),

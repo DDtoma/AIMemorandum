@@ -10,6 +10,7 @@ export component ScreenshotOverlay inherits Window {
     property <float> current-y: 0;
     property <bool> selecting: false;
     in property <image> frame;
+    in property <bool> output-ready: true;
     callback started(float, float);
     callback moved(float, float);
     callback finished(float, float);
@@ -23,6 +24,7 @@ export component ScreenshotOverlay inherits Window {
     Rectangle {
         background: #00000066;
         TouchArea {
+            enabled: root.output-ready;
             pointer-event(event) => {
                 if (event.kind == PointerEventKind.down) {
                     root.start-x = self.mouse-x / 1px;

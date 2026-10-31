@@ -10,12 +10,14 @@ pub struct CaptureRegion {
     pub height: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DisplayGeometry {
     pub x: i32,
     pub y: i32,
     pub width: u32,
     pub height: u32,
+    /// Physical pixels per logical unit in the captured frame and crop path.
+    pub scale_factor: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

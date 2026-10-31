@@ -28,6 +28,7 @@ global-hotkey = "0.9"
 ksni = { version = "0.3", default-features = false, features = ["blocking", "async-io"] }
 libc = "0.2"
 pipewire = "0.10"
+slint = { version = "1", default-features = false, features = ["std", "unstable-winit-030"] }
 tokio = { version = "1", features = ["rt"] }
 xcap = "0.9"
 

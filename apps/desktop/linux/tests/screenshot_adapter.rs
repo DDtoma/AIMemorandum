@@ -1,6 +1,6 @@
 use aimemorandum_linux::{FrameProvider, MonitorGeometry, ScreenshotAdapter, StaticFrame};
 use aimemorandum_ui::{
-    output_geometry_from_physical, select_overlay_output, CaptureRegion, DisplayGeometry, UiError,
+    output_geometry_for_capture, select_overlay_output, CaptureRegion, DisplayGeometry, UiError,
 };
 use image::RgbaImage;
 use std::sync::{
@@ -48,11 +48,12 @@ fn selection_crops_the_one_cached_frame_and_stages_a_png() {
         y: -50,
         width: 4,
         height: 4,
+        scale_factor: 2.0,
     };
     assert_eq!(adapter.capture_display(), Some(captured_display));
     let outputs = [
-        output_geometry_from_physical(0, 0, 1920, 1080, 1.0).unwrap(),
-        output_geometry_from_physical(-200, -100, 8, 8, 2.0).unwrap(),
+        output_geometry_for_capture(0, 0, 1920, 1080, captured_display).unwrap(),
+        output_geometry_for_capture(-200, -100, 8, 8, captured_display).unwrap(),
     ];
     assert_eq!(select_overlay_output(captured_display, &outputs), Ok(1));
     let selected = adapter

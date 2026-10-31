@@ -13,7 +13,10 @@ pub use controller::UiController;
 pub use error::UiError;
 pub use intent::UiIntent;
 pub use model::*;
-pub use overlay_output::{output_geometry_from_physical, select_overlay_output, OutputMatchError};
+pub use overlay_output::{
+    output_geometry_for_capture, select_overlay_output, OutputMatchError, OutputRoute,
+    ScreenshotOutputRouter,
+};
 pub use platform::*;
 
 pub use worker::{Controller, UiIntentSender, UiUpdate, UiWorker};

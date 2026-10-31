@@ -61,6 +61,7 @@ impl ScreenshotAdapter {
                 y: monitor.y,
                 width: monitor.width,
                 height: monitor.height,
+                scale_factor: monitor.scale_factor,
             }
         })
     }

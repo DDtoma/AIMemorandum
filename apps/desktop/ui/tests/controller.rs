@@ -503,6 +503,7 @@ impl Screenshot for FakeScreenshot {
             y: 50,
             width: 1920,
             height: 1080,
+            scale_factor: 2.0,
         })
     }
 
@@ -657,6 +658,7 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
             y: 50,
             width: 1920,
             height: 1080,
+            scale_factor: 2.0,
         })
     );
     assert_eq!(*full_frames.lock().unwrap(), 1);
