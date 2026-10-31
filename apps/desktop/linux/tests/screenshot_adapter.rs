@@ -52,8 +52,8 @@ fn selection_crops_the_one_cached_frame_and_stages_a_png() {
     };
     assert_eq!(adapter.capture_display(), Some(captured_display));
     let outputs = [
-        output_geometry_for_capture(0, 0, 1920, 1080, captured_display).unwrap(),
-        output_geometry_for_capture(-200, -100, 8, 8, captured_display).unwrap(),
+        output_geometry_for_capture(0, 0, 1920, 1080, 2.0, captured_display).unwrap(),
+        output_geometry_for_capture(-200, -100, 8, 8, 2.0, captured_display).unwrap(),
     ];
     assert_eq!(select_overlay_output(captured_display, &outputs), Ok(1));
     let selected = adapter

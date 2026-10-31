@@ -18,6 +18,57 @@ pub trait ScreenshotOutputRouter {
     ) -> Result<OutputRoute, String>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScreenshotWindowAction {
+    Show,
+    Hide,
+    None,
+}
+
+#[derive(Debug, Default)]
+pub struct ScreenshotWindowState {
+    shown: bool,
+    display: Option<DisplayGeometry>,
+}
+
+impl ScreenshotWindowState {
+    /// Returns Show for a new capture or a changed output, including coalesced recaptures.
+    pub fn synchronize(
+        &mut self,
+        active: bool,
+        display: Option<DisplayGeometry>,
+    ) -> ScreenshotWindowAction {
+        if !active {
+            return if self.shown {
+                self.shown = false;
+                self.display = None;
+                ScreenshotWindowAction::Hide
+            } else {
+                ScreenshotWindowAction::None
+            };
+        }
+        if self.shown && self.display == display {
+            return ScreenshotWindowAction::None;
+        }
+        self.shown = true;
+        self.display = display;
+        ScreenshotWindowAction::Show
+    }
+}
+
+/// Requests are asynchronous on Wayland; only actual output and size confirm readiness.
+pub fn output_configuration_ready(
+    current_output: Option<u32>,
+    fullscreen_output: Option<u32>,
+    target_output: u32,
+    window_size: (u32, u32),
+    output_size: (u32, u32),
+) -> bool {
+    current_output == Some(target_output)
+        && fullscreen_output == Some(target_output)
+        && window_size == output_size
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OutputMatchError {
     NoMatch,
@@ -40,23 +91,31 @@ impl fmt::Display for OutputMatchError {
 
 impl std::error::Error for OutputMatchError {}
 
-/// Converts physical output geometry using the captured frame's scale.
+/// Converts native output geometry into the compositor's logical coordinates.
 ///
-/// Winit's Wayland output scale can be an integer even when ScreenCast and the
-/// window use fractional scaling, so it is not a valid conversion source here.
+/// The origin uses winit's native output scale; dimensions use ScreenCast's
+/// physical/logical ratio. Neither scale alone describes both native fields.
 pub fn output_geometry_for_capture(
     x: i32,
     y: i32,
     width: u32,
     height: u32,
+    native_scale_factor: f64,
     captured: DisplayGeometry,
 ) -> Option<DisplayGeometry> {
     let scale_factor = captured.scale_factor;
-    if !scale_factor.is_finite() || scale_factor <= 0.0 {
+    if !native_scale_factor.is_finite()
+        || native_scale_factor <= 0.0
+        || !scale_factor.is_finite()
+        || scale_factor <= 0.0
+    {
         return None;
     }
-    let logical_x = (f64::from(x) / scale_factor).round();
-    let logical_y = (f64::from(y) / scale_factor).round();
+    // Winit's Wayland position is logical_position * integer output scale,
+    // whereas its size is the physical mode. Keep those conversion domains
+    // separate or a fractional-scale output at a nonzero origin will not match.
+    let logical_x = (f64::from(x) / native_scale_factor).round();
+    let logical_y = (f64::from(y) / native_scale_factor).round();
     let logical_width = (f64::from(width) / scale_factor).round();
     let logical_height = (f64::from(height) / scale_factor).round();
     if logical_x < f64::from(i32::MIN)

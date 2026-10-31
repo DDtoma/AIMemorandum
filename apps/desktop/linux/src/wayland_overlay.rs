@@ -1,6 +1,6 @@
 use aimemorandum_ui::{
-    output_geometry_for_capture, select_overlay_output, DisplayGeometry, OutputMatchError,
-    OutputRoute, ScreenshotOutputRouter,
+    output_configuration_ready, output_geometry_for_capture, select_overlay_output,
+    DisplayGeometry, OutputMatchError, OutputRoute, ScreenshotOutputRouter,
 };
 use slint::winit_030::{winit::window::Fullscreen, WinitWindowAccessor};
 
@@ -24,6 +24,7 @@ impl ScreenshotOutputRouter for WaylandOutputRouter {
                         position.y,
                         size.width,
                         size.height,
+                        monitor.scale_factor(),
                         captured,
                     )
                 })
@@ -36,10 +37,26 @@ impl ScreenshotOutputRouter for WaylandOutputRouter {
                         "多个显示器与截图几何信息匹配，无法安全选择".to_owned()
                     }
                 })?;
-            native.set_fullscreen(Some(Fullscreen::Borderless(Some(
-                monitors[selected].clone(),
-            ))));
-            Ok(OutputRoute::Routed)
+            let target = &monitors[selected];
+            let fullscreen_output = match native.fullscreen() {
+                Some(Fullscreen::Borderless(Some(monitor))) => Some(monitor.native_identifier()),
+                _ => None,
+            };
+            let window_size = native.inner_size();
+            let output_size = target.size();
+            if output_configuration_ready(
+                native
+                    .current_monitor()
+                    .map(|monitor| monitor.native_identifier()),
+                fullscreen_output,
+                target.native_identifier(),
+                (window_size.width, window_size.height),
+                (output_size.width, output_size.height),
+            ) {
+                return Ok(OutputRoute::Routed);
+            }
+            native.set_fullscreen(Some(Fullscreen::Borderless(Some(target.clone()))));
+            Ok(OutputRoute::Pending)
         }) else {
             return Ok(OutputRoute::Pending);
         };

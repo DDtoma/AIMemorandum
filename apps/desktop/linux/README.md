@@ -26,11 +26,14 @@ usual `/usr/local/bin`, `/usr/local/share/applications` and
 
 - X11 uses `xcap` and `global-hotkey` (`Ctrl+Alt+M/S/V/L`).
 - Wayland uses the XDG ScreenCast portal and one PipeWire static frame. A
-  Linux-only router waits for native-window readiness, then requests fullscreen
-  on the captured winit `MonitorHandle`; selection is disabled while it waits.
+  Linux-only router waits for native-window readiness, requests fullscreen on
+  the captured winit `MonitorHandle`, and waits for the compositor to confirm
+  that output and its physical size before enabling selection. Recapturing a
+  different output reroutes even when intermediate UI updates are coalesced.
   A unique logical-geometry match (one logical pixel tolerance) selects that
-  handle. Native output geometry is converted with the capture-derived
-  physical/logical scale, not winit's integer Wayland output scale.
+  handle. Winit's integer output scale converts its logical origin; the
+  capture-derived physical/logical scale converts its physical dimensions.
+  Keeping those domains separate handles fractional scaling at nonzero origins.
   Missing/ambiguous matches, missing portal output metadata, or invalid scaling
   fail closed instead of displaying an overlay on an arbitrary output.
   Cropping continues to use the same captured monitor origin and scale. KDE

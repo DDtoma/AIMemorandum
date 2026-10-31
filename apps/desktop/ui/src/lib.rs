@@ -14,8 +14,9 @@ pub use error::UiError;
 pub use intent::UiIntent;
 pub use model::*;
 pub use overlay_output::{
-    output_geometry_for_capture, select_overlay_output, OutputMatchError, OutputRoute,
-    ScreenshotOutputRouter,
+    output_configuration_ready, output_geometry_for_capture, select_overlay_output,
+    OutputMatchError, OutputRoute, ScreenshotOutputRouter, ScreenshotWindowAction,
+    ScreenshotWindowState,
 };
 pub use platform::*;
 

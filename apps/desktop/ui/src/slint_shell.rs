@@ -1,6 +1,6 @@
 use crate::{
-    ItemFilter, OutputRoute, ScreenshotOutputRouter, UiError, UiIntent, UiUpdate, UiWorker,
-    ViewModel,
+    ItemFilter, OutputRoute, ScreenshotOutputRouter, ScreenshotWindowAction, ScreenshotWindowState,
+    UiError, UiIntent, UiUpdate, UiWorker, ViewModel,
 };
 use aimemorandum_core::SubmitKey;
 use slint::{ComponentHandle, Model, ModelRc, Timer, TimerMode, VecModel};
@@ -243,7 +243,7 @@ impl SlintShell {
         let timer = Timer::default();
         let mut last_view: Option<ViewModel> = None;
         let mut screenshot_image = CachedScreenshot::default();
-        let mut screenshot_shown = false;
+        let mut screenshot_state = ScreenshotWindowState::default();
         let mut screenshot_route_pending = false;
         let mut ticks = 0_u64;
         let mut quitting = false;
@@ -343,7 +343,7 @@ impl SlintShell {
                         },
                         update,
                         &mut screenshot_image,
-                        &mut screenshot_shown,
+                        &mut screenshot_state,
                         &mut screenshot_route_pending,
                         &sender,
                         screenshot_output_router.is_some(),
@@ -382,7 +382,7 @@ fn apply_update(
     windows: ShellWindows<'_>,
     update: UiUpdate,
     screenshot_image: &mut CachedScreenshot,
-    screenshot_shown: &mut bool,
+    screenshot_state: &mut ScreenshotWindowState,
     screenshot_route_pending: &mut bool,
     sender: &crate::UiIntentSender,
     route_screenshot_output: bool,
@@ -470,25 +470,23 @@ fn apply_update(
     settings.set_error(view.settings.error.unwrap_or_default().into());
 
     screenshot_image.apply(view.screenshot.background.as_deref(), screenshot);
-    if screenshot_active {
-        if !*screenshot_shown {
-            *screenshot_shown = true;
-            show_screenshot(
-                screenshot,
-                view.screenshot.display,
-                route_screenshot_output,
-                sender,
-                screenshot_route_pending,
-            );
+    match screenshot_state.synchronize(screenshot_active, view.screenshot.display) {
+        ScreenshotWindowAction::Show => show_screenshot(
+            screenshot,
+            view.screenshot.display,
+            route_screenshot_output,
+            sender,
+            screenshot_route_pending,
+        ),
+        ScreenshotWindowAction::Hide => {
+            if view.capture.error.is_some() {
+                let _ = capture.show();
+            }
+            *screenshot_route_pending = false;
+            screenshot.set_output_ready(true);
+            let _ = screenshot.hide();
         }
-    } else {
-        if *screenshot_shown && view.capture.error.is_some() {
-            let _ = capture.show();
-        }
-        *screenshot_shown = false;
-        *screenshot_route_pending = false;
-        screenshot.set_output_ready(true);
-        let _ = screenshot.hide();
+        ScreenshotWindowAction::None => {}
     }
 }
 
