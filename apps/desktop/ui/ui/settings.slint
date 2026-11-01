@@ -1,0 +1,38 @@
+import { Button, CheckBox, HorizontalBox, LineEdit, VerticalBox } from "std-widgets.slint";
+
+export component Settings inherits Window {
+    title: "设置";
+    width: 520px;
+    height: 390px;
+    in-out property <string> server-url: "";
+    in-out property <string> enrollment-code: "";
+    in-out property <string> device-name: "";
+    in property <bool> registered: false;
+    in-out property <bool> autostart: false;
+    in property <string> message: "";
+    in property <string> error: "";
+    callback settings-changed(string, string, string);
+    callback register();
+    callback autostart-changed(bool);
+    callback close-requested();
+    VerticalBox {
+        padding: 18px;
+        spacing: 12px;
+        Text { text: "设备与服务"; font-size: 20px; font-weight: 700; }
+        Text { text: "服务地址"; }
+        LineEdit { text <=> root.server-url; edited(_) => root.settings-changed(root.server-url, root.enrollment-code, root.device-name); }
+        Text { text: "注册码"; }
+        LineEdit { text <=> root.enrollment-code; edited(_) => root.settings-changed(root.server-url, root.enrollment-code, root.device-name); }
+        Text { text: "设备名称"; }
+        LineEdit { text <=> root.device-name; edited(_) => root.settings-changed(root.server-url, root.enrollment-code, root.device-name); }
+        CheckBox { text: "登录后自动启动"; checked <=> root.autostart; toggled => root.autostart-changed(self.checked); }
+        Text { text: root.registered ? "设备已注册；设备凭据不会进入界面模型。" : "设备尚未注册"; color: #555555; wrap: word-wrap; }
+        if root.error != "": Text { text: root.error; color: #c62828; wrap: word-wrap; }
+        if root.message != "": Text { text: root.message; color: #2e7d32; }
+        HorizontalBox {
+            Button { text: "暂时离线"; clicked => root.close-requested(); }
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: "注册设备"; primary: true; clicked => root.register(); }
+        }
+    }
+}

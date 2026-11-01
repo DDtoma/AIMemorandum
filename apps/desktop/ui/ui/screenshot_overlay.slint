@@ -1,0 +1,32 @@
+export component ScreenshotOverlay inherits Window {
+    title: "选择截图区域";
+    no-frame: true;
+    always-on-top: true;
+    background: transparent;
+    width: 1280px;
+    height: 720px;
+    // Native adapters own the global physical-pixel drag model and project it here.
+    in-out property <bool> selecting: false;
+    in-out property <float> selection-x: 0;
+    in-out property <float> selection-y: 0;
+    in-out property <float> selection-width: 0;
+    in-out property <float> selection-height: 0;
+    callback cancelled();
+    Rectangle {
+        background: #00000066;
+        if root.selecting: Rectangle {
+            x: root.selection-x * 1px;
+            y: root.selection-y * 1px;
+            width: root.selection-width * 1px;
+            height: root.selection-height * 1px;
+            background: #ffffff22;
+            border-color: #ffffff;
+            border-width: 2px;
+        }
+    }
+    FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Escape) { root.cancelled(); accept } else { reject }
+        }
+    }
+}

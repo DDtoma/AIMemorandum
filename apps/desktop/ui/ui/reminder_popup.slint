@@ -1,0 +1,23 @@
+import { Button, HorizontalBox, VerticalBox } from "std-widgets.slint";
+
+export component ReminderPopup inherits Window {
+    title: "提醒";
+    width: 400px;
+    height: 190px;
+    in property <string> item-title: "";
+    callback complete();
+    callback snooze();
+    callback dismiss();
+    VerticalBox {
+        padding: 18px;
+        spacing: 14px;
+        Text { text: "记录提醒"; font-size: 19px; font-weight: 700; }
+        Text { text: root.item-title; wrap: word-wrap; vertical-stretch: 1; }
+        HorizontalBox {
+            spacing: 8px;
+            Button { text: "完成"; primary: true; clicked => root.complete(); }
+            Button { text: "稍后 10 分钟"; clicked => root.snooze(); }
+            Button { text: "知道了"; clicked => root.dismiss(); }
+        }
+    }
+}
