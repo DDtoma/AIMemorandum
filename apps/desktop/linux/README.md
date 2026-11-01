@@ -22,6 +22,13 @@ The executable is `target/release/aimemorandum`. Install it together with
 usual `/usr/local/bin`, `/usr/local/share/applications` and
 `/usr/local/share/icons/hicolor/scalable/apps` destinations.
 
+
+## Local deb and AppImage packages
+
+From the repository root run `bash scripts/build-linux-packages.sh --deb --appimage`. Outputs go to `apps/desktop/dist`; use `--skip-build` for an existing release binary. Packaging needs bash/ar/tar, not dpkg-deb or mksquashfs. Provide appimagetool through `APPIMAGETOOL` or PATH. The AppImage uses AppRun and a checked-in 256×256 `aimemorandum.png` at the AppDir root for appimagetool (no build-time converter); both formats include desktop metadata, SVG, LICENSE, and THIRD_PARTY_NOTICES.md.
+
+For isolated deb verification, extract `data.tar.gz` with ar/tar into a temporary directory, optionally run `usr/bin/aimemorandum`, then remove that directory. For AppImage, use `--appimage-extract` and optionally the extracted AppRun. No system installation is required. Exact commands and unverified boundaries are in `docs/RUN.md`.
+
 ## Session integration
 
 - X11 uses `xcap` and `global-hotkey` (`Ctrl+Alt+M/S/V/L`). A conflicting
