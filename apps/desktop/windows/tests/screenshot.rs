@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use aimemorandum_ui::{CaptureRegion, Screenshot};
 use aimemorandum_windows::{
     monitor_geometries, normalized_selection, plan_capture, project_selection,

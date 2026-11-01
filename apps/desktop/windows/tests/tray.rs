@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use aimemorandum_ui::TrayEntry;
 use aimemorandum_windows::{menu_action, CliAction, NativeTray, TrayAction};
 

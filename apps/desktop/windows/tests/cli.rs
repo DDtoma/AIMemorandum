@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use aimemorandum_windows::{parse_args, CliAction};
 
 #[test]

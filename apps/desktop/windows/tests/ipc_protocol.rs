@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use aimemorandum_windows::{decode_command, encode_command, CliAction};
 
 #[test]

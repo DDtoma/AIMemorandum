@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 //! Windows executable integration for AIMemorandum.
 
 mod clipboard;

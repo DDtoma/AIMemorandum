@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use aimemorandum_windows::data_dir_from;
 use std::{ffi::OsString, path::Path};
 

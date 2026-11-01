@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use aimemorandum_windows::{autostart_command, autostart_registry_value};
 use std::path::Path;
 

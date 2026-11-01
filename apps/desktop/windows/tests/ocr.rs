@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use aimemorandum_core::LocalStore;
 use aimemorandum_ui::{
     CaptureRegion, CapturedImage, Clipboard, Clock, CoreEnrollment, DesktopShell, Screenshot,

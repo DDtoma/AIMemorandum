@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use aimemorandum_windows::save_rgba_png;
 
 #[test]

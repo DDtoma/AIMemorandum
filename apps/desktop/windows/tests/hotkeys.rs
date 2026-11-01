@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use aimemorandum_windows::{CliAction, HotkeyBindings, NativeHotkeys};
 
 #[test]
