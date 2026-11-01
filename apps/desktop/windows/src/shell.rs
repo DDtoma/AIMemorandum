@@ -18,6 +18,10 @@ pub fn autostart_command(executable: &Path) -> String {
     format!(r#""{}" --background"#, executable.display())
 }
 
+pub fn autostart_registry_value(executable: &Path) -> Vec<u16> {
+    wide(&autostart_command(executable))
+}
+
 #[derive(Clone, Debug)]
 pub struct WindowsDesktopShell {
     executable: PathBuf,
@@ -36,7 +40,7 @@ impl DesktopShell for WindowsDesktopShell {
     fn set_autostart(&self, enabled: bool) -> Result<(), UiError> {
         let key = open_run_key()?;
         if enabled {
-            let command = wide(&autostart_command(&self.executable));
+            let command = autostart_registry_value(&self.executable);
             let status = unsafe {
                 RegSetValueExW(
                     key.0,

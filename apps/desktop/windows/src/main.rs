@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use aimemorandum_core::LocalStore;
 use aimemorandum_ui::{
     Clock, CoreEnrollment, ScreenshotOverlay, SlintShell, UiController, UiError, UiIntent,

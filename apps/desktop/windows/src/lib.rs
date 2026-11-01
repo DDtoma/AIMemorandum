@@ -24,5 +24,5 @@ pub use screenshot::{
     virtual_desktop_bounds, CapturePlan, CaptureTile, LogicalRect, MonitorGeometry, PhysicalPoint,
     PhysicalRect, SelectionDrag, WindowsScreenshot,
 };
-pub use shell::{autostart_command, WindowsDesktopShell};
+pub use shell::{autostart_command, autostart_registry_value, WindowsDesktopShell};
 pub use tray::{menu_action, NativeTray, TrayAction};
