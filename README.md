@@ -13,7 +13,7 @@ macOS 默认快捷键：
 | 剪贴板速存 | 复制内容 → ⌥⌘V |
 | 查看记录 | ⌥⌘L |
 
-Windows / Linux 默认快捷键为 `Ctrl+Alt+M / S / V / L`。记录先保存到本机，联网后同步。macOS 截图可使用本机 Vision 提取文字；Windows OCR 与 Linux 截图依赖见 [运行指南](docs/RUN.md)。应用以独立安装包或可执行文件运行，屏幕录制权限授予 AIMemorandum 本身。
+Windows / Linux 默认快捷键为 `Ctrl+Alt+M / S / V / L`。记录先保存到本机，联网后同步。macOS 截图可使用本机 Vision 提取文字；Windows OCR 使用系统已安装的 OCR 语言包，Linux 截图与运行依赖见 [运行指南](docs/RUN.md)。应用以独立安装包或可执行文件运行，屏幕录制权限授予 AIMemorandum 本身。
 
 ## 桌面客户端（Windows / Linux）
 

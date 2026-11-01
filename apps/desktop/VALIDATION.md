@@ -9,7 +9,7 @@
 
 - Windows 实机证据来自 #7 平台提交 `839c810f95a3d70d292d9fd08b92c9e885e526b8`，原始记录见 [windows/VALIDATION.md](windows/VALIDATION.md)。
 - Linux XFCE/X11 实机证据来自 #8 平台提交 `47d6fe71cffe241c6933afe3abff8b3aa17de190`，原始记录见 [#8](https://github.com/DDtoma/AIMemorandum/issues/8) 及该票列出的远端证据文件。
-- 上述实机结果先于最终合并，不冒充最终集成提交上的重新实测。合并后另跑自动回归；代码评审修复提交为 `78a5b876923b023c5e5630a733f45a5487bdfbed`，其后仅追加本文与包哈希的文档收口提交，不把自动回归当作新的桌面证据。
+- 上述实机结果先于最终合并，不冒充最终集成提交上的重新实测。合并后另跑自动回归；代码评审修复提交为 `78a5b876923b023c5e5630a733f45a5487bdfbed`，其后收口提交补充 Linux portal 快捷键文案与本文/包哈希，不把自动回归当作新的桌面证据。
 - Windows 与 XFCE 的隔离数据目录均用于验收，未使用用户真实数据库。具体目录见各原始记录。
 
 ## 2. 实测环境
@@ -56,21 +56,21 @@
 | 连续截图 | 两次 overlay 均为 `1920×1080@(0,0)`；两个不同逻辑选区均输出 300×200 PNG。证据：`final-clean-result.txt`。 | 仅单屏 scale 1 通过 |
 | 内存：托盘 | 初始 **41.28 MiB**；连续四轮回到托盘约 **49.91–50.09 MiB**。 | 低于 60 MiB |
 | 内存：overlay | **81.69→89.42 MiB**。证据：`screenshot-release-order-memory.txt`。 | 低于 100 MiB |
-| 内存：记录窗口/列表 | 记录窗口 **53.02 MiB**；记录列表 **57.55 MiB**。 | 分别低于 80/100 MiB |
+| 内存：记录窗口 | 记录窗口 **53.02 MiB**；记录窗口列表 **57.55 MiB**。 | 分别低于 80/100 MiB |
 
 Linux OCR 不在 #8 范围。以上结果不证明 GNOME/KDE Wayland、多显示器或非 1 缩放。
 
 ## 5. 本地安装包验证（#9，非发布验收）
 
-按维护者限定的范围，只验证本地 Windows NSIS、Linux deb/AppImage；不做 CI、分发、签名或公证。命令与边界见 [../../docs/RUN.md](../../docs/RUN.md)。以下包由最终代码提交 `78a5b876923b023c5e5630a733f45a5487bdfbed` 的 release 二进制构建，哈希为最终产物实测值：
+按维护者限定的范围，只验证本地 Windows NSIS、Linux deb/AppImage；不做 CI、分发、签名或公证。命令与边界见 [../../docs/RUN.md](../../docs/RUN.md)。Windows 包由代码提交 `78a5b876923b023c5e5630a733f45a5487bdfbed` 构建；Linux 包在该提交上追加 portal 快捷键文案修正后构建。哈希为最终产物实测值：
 
 | 包 | 大小（bytes） | SHA-256 |
 | --- | ---: | --- |
 | `AIMemorandum-0.1.0-x86_64-setup.exe` | 10,920,386 | `16d1df0537ba0bc546f75c280194054909951683600edbb752ca53bf95503e2e` |
-| `aimemorandum_0.1.0_amd64.deb` | 15,969,120 | `44f28b097761bc8d6d8c2cbf87cfbf4f8ace9bc21985d9c2dde4ef9b9939c315` |
-| `AIMemorandum-0.1.0-x86_64.AppImage` | 15,604,216 | `ee2d4a16581ac1eef523f9ff8b39e5f77961a1aea331b1d8a843090e0238d8c3` |
+| `aimemorandum_0.1.0_amd64.deb` | 15,968,692 | `a4a9398d3a115d411b19ac3c41939f5b35321eea42021ea237ada6d91601a501` |
+| `AIMemorandum-0.1.0-x86_64.AppImage` | 15,608,312 | `18236fe70c6479d68e6e221df5371e3dc2750d6092cc60b80f2d2bc63a8e7a09` |
 
-- Windows release 二进制 41,210,861 bytes，SHA-256 `44d5646dbfbf2848c7a6067664bca700387ab9d18d628403e22e8b4ec98e840c`；Linux release 二进制 44,414,072 bytes，SHA-256 `45cf341f0fe3d40002f919e5f38f7626dc7ec6c16b11f359f10bc8b7dc98ef40`。
+- Windows release 二进制 41,210,861 bytes，SHA-256 `44d5646dbfbf2848c7a6067664bca700387ab9d18d628403e22e8b4ec98e840c`；Linux release 二进制 44,413,920 bytes，SHA-256 `11d1f1bdee1f4c163aacbb20aa130dd3ef63a860a0adc8768ffe56c8d4f5efc2`。
 - Windows：NSIS 3.11 实际构建成功；最终安装包在隔离目录安装/卸载均 exit 0。安装后的 exe、LICENSE、THIRD_PARTY_NOTICES.md 与源哈希一致，卸载目录删除，Start Menu shortcut、HKCU Uninstall、HKCU Run 均未改变。未启动应用。
 - deb：实际检查 control 与 payload，包内 `usr/bin/aimemorandum` 与 release 二进制逐字节一致；通过 ar/tar 解包检查，不声称已在干净系统用包管理器安装。
 - AppImage：官方 appimagetool continuous 9bab981 build 340 实际构建成功；实际 `--appimage-extract` 后，二进制、LICENSE、THIRD_PARTY_NOTICES.md、PNG 与 AppRun 均验证，两个入口可执行。未据此声称完成业务链路。
