@@ -9,7 +9,7 @@
 
 - Windows 实机证据来自 #7 平台提交 `839c810f95a3d70d292d9fd08b92c9e885e526b8`，原始记录见 [windows/VALIDATION.md](windows/VALIDATION.md)。
 - Linux XFCE/X11 实机证据来自 #8 平台提交 `47d6fe71cffe241c6933afe3abff8b3aa17de190`，原始记录见 [#8](https://github.com/DDtoma/AIMemorandum/issues/8) 及该票列出的远端证据文件。
-- 上述实机结果先于最终合并，不冒充最终集成提交上的重新实测。代码评审修复提交为 `78a5b876923b023c5e5630a733f45a5487bdfbed`，收口提交 `1fe04e8f973ceec18cc7f9b2da59310b5ecdd7ea` 补充 Linux portal 快捷键文案与本文/包哈希；`main` 的最终代码提交为 `920ff674668037976dfb225a89a7d5df4bdbd0e8`，仅新增 `.gitattributes` 的 notices LF 导出规则，无产品代码变化；本文以随后的文档提交落到 `main`。合并后另跑自动回归与一次真实 Rust→Go 集成 smoke，不把自动回归当作新的桌面证据。
+- 上述实机结果先于最终合并，不冒充最终集成提交上的重新实测。代码评审修复提交为 `78a5b876923b023c5e5630a733f45a5487bdfbed`，收口提交 `1fe04e8f973ceec18cc7f9b2da59310b5ecdd7ea` 补充 Linux portal 快捷键文案与本文/包哈希；`main` 的最终代码提交为 `920ff674668037976dfb225a89a7d5df4bdbd0e8`，仅新增 `.gitattributes` 的 notices LF 导出规则，无产品代码变化；之后的文档与包哈希提交只更新记录，不改变产品代码。合并后另跑自动回归与一次真实 Rust→Go 集成 smoke，不把自动回归当作新的桌面证据。
 - Windows 与 XFCE 的隔离数据目录均用于验收，未使用用户真实数据库。具体目录见各原始记录。
 
 ## 2. 实测环境
@@ -62,19 +62,19 @@ Linux OCR 不在 #8 范围。以上结果不证明 GNOME/KDE Wayland、多显示
 
 ## 5. 本地安装包验证（#9，非发布验收）
 
-按维护者限定的范围，只验证本地 Windows NSIS、Linux deb/AppImage；不做 CI、分发、签名或公证。命令与边界见 [../../docs/RUN.md](../../docs/RUN.md)。Windows 包由代码提交 `78a5b876923b023c5e5630a733f45a5487bdfbed` 构建；Linux 包在该提交上追加 portal 快捷键文案修正后构建（最终代码 `1fe04e8f973ceec18cc7f9b2da59310b5ecdd7ea`）。`main` 的代码提交 `920ff674668037976dfb225a89a7d5df4bdbd0e8` 只调整 notices 的 LF 导出，不改变包内产品代码；哈希为最终产物实测值：
+按维护者限定的范围，只验证本地 Windows NSIS、Linux deb/AppImage；不做 CI、分发、签名或公证。命令与边界见 [../../docs/RUN.md](../../docs/RUN.md)。三包均由 `main` 的 `4a498193fb80c6f64914f12be10b6bba0167722c` 工作树构建；其产品代码与 `1fe04e8f973ceec18cc7f9b2da59310b5ecdd7ea` 相同，后续 `920ff67` 只调整 notices 的 LF 导出。哈希为最终产物实测值：
 
 | 包 | 大小（bytes） | SHA-256 |
 | --- | ---: | --- |
-| `AIMemorandum-0.1.0-x86_64-setup.exe` | 10,920,386 | `16d1df0537ba0bc546f75c280194054909951683600edbb752ca53bf95503e2e` |
-| `aimemorandum_0.1.0_amd64.deb` | 15,968,692 | `a4a9398d3a115d411b19ac3c41939f5b35321eea42021ea237ada6d91601a501` |
-| `AIMemorandum-0.1.0-x86_64.AppImage` | 15,608,312 | `18236fe70c6479d68e6e221df5371e3dc2750d6092cc60b80f2d2bc63a8e7a09` |
+| `AIMemorandum-0.1.0-x86_64-setup.exe` | 10,918,991 | `d14e88724375853b5964c37f3e2336e87d8e22db8580ab2d1628973070ff348d` |
+| `aimemorandum_0.1.0_amd64.deb` | 15,963,496 | `49cb4338570e11b7741cc644b6226e4d102f8e198aabdf2ae6a7553f9719b4b4` |
+| `AIMemorandum-0.1.0-x86_64.AppImage` | 15,600,120 | `4dac5faed49e98a9ce40ee4d2032b5c03869f0683369522a2dbbe11c43de5b8d` |
 
-- Windows release 二进制 41,210,861 bytes，SHA-256 `44d5646dbfbf2848c7a6067664bca700387ab9d18d628403e22e8b4ec98e840c`；Linux release 二进制 44,413,920 bytes，SHA-256 `11d1f1bdee1f4c163aacbb20aa130dd3ef63a860a0adc8768ffe56c8d4f5efc2`。
+- Windows release 二进制 41,208,583 bytes，SHA-256 `7b8127de4d95725dab12575e98b77f7a7984e2475a365e63172ab73869b8df49`；Linux release 二进制 44,413,872 bytes，SHA-256 `4dca1317260cfe886f27a12f5c2db54f980259171e350f7ced3050523089c52f`。
 - Windows：NSIS 3.11 实际构建成功；最终安装包在隔离目录安装/卸载均 exit 0。安装后的 exe、LICENSE、THIRD_PARTY_NOTICES.md 与源哈希一致，卸载目录删除，Start Menu shortcut、HKCU Uninstall、HKCU Run 均未改变。未启动应用。
 - deb：实际检查 control 与 payload，包内 `usr/bin/aimemorandum` 与 release 二进制逐字节一致；通过 ar/tar 解包检查，不声称已在干净系统用包管理器安装。
 - AppImage：官方 appimagetool continuous 9bab981 build 340 实际构建成功；实际 `--appimage-extract` 后，二进制、LICENSE、THIRD_PARTY_NOTICES.md、PNG 与 AppRun 均验证，两个入口可执行。未据此声称完成业务链路。
-- 最终自动验证（`main` 代码提交 `920ff67`）：Windows 上 fmt、workspace tests（0 failed）、clippy `-D warnings`、release 构建、11 项打包合同测试、第三方清单 `--offline --check`、`services/api` 的 `go test ./...` 全部通过；另启动真实 `services/api`，以 `MEMO_GO_BASE_URL`/`MEMO_GO_ENROLL_CODE` 跑通默认 ignored 的 `go_integration` Rust→Go smoke。Linux 从该提交的干净 `git archive` 执行同一组检查，全部通过；打包测试 9 通过、2 项仅 Windows 的检查按平台跳过，Go 集成 smoke 同样通过。自动验证不等同于下节的实机验收。
+- 最终自动验证（`main` `4a49819`，产品代码同 `920ff67`）：Windows 上 fmt、workspace tests（0 failed）、clippy `-D warnings`、release 构建、11 项打包合同测试、第三方清单 `--offline --check`、`services/api` 的 `go test ./...` 全部通过；另启动真实 `services/api`，以 `MEMO_GO_BASE_URL`/`MEMO_GO_ENROLL_CODE` 跑通默认 ignored 的 `go_integration` Rust→Go smoke。Linux 从该提交的干净 `git archive` 执行同一组检查，全部通过；打包测试 9 通过、2 项仅 Windows 的检查按平台跳过，Go 集成 smoke 同样通过。自动验证不等同于下节的实机验收。
 - 三包均未完成「干净系统安装 → 注册 → 记录 → 同步 → 提醒」全链路，不能记为发布验收通过。
 
 ## 6. 仍需人工执行的验收矩阵
