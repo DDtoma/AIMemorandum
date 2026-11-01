@@ -151,7 +151,7 @@ def render(metadata, lock_bytes, lockfile):
         "",
         "## Scope and provenance",
         "",
-        f"- Inventory source: `{repo_display_path(lockfile)}` (SHA-256 `{hashlib.sha256(lock_bytes).hexdigest()}`),",
+        f"- Inventory source: `{repo_display_path(lockfile)}` (SHA-256 of LF-normalized bytes: `{hashlib.sha256(lock_bytes).hexdigest()}`),",
         "  cross-checked against `cargo metadata --locked --format-version 1`.",
         f"- This document lists {len(packages)} third-party packages from the resolved desktop workspace,",
         "  including transitive and target-specific packages. It is a lockfile superset, not a",
@@ -228,7 +228,7 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args(argv)
     try:
-        lock_bytes = args.lockfile.read_bytes()
+        lock_bytes = args.lockfile.read_bytes().replace(b"\r\n", b"\n")
         rendered = render(load_metadata(args), lock_bytes, args.lockfile).encode("utf-8")
         if args.check:
             if not args.output.is_file() or args.output.read_bytes() != rendered:

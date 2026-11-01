@@ -211,12 +211,12 @@ class NoticeGenerationTests(unittest.TestCase):
             work = Path(temporary)
             source = "registry+https://github.com/rust-lang/crates.io-index"
             lock = work / "Cargo.lock"
-            lock.write_text(
+            lock_text = (
                 "version = 4\n\n"
                 "[[package]]\nname = \"alpha\"\nversion = \"1.0.0\"\nsource = \"" + source + "\"\n\n"
-                "[[package]]\nname = \"beta\"\nversion = \"2.0.0\"\nsource = \"" + source + "\"\n",
-                encoding="utf-8",
+                "[[package]]\nname = \"beta\"\nversion = \"2.0.0\"\nsource = \"" + source + "\"\n"
             )
+            lock.write_bytes(lock_text.replace("\n", "\r\n").encode("utf-8"))
             alpha = work / "alpha"
             beta = work / "beta"
             alpha.mkdir()
@@ -264,7 +264,7 @@ class NoticeGenerationTests(unittest.TestCase):
             ]
             run(command)
             notice = output.read_text(encoding="utf-8")
-            self.assertIn(hashlib.sha256(lock.read_bytes()).hexdigest(), notice)
+            self.assertIn(hashlib.sha256(lock_text.encode("utf-8")).hexdigest(), notice)
             self.assertIn("alpha 1.0.0", notice)
             self.assertIn("beta 2.0.0", notice)
             self.assertIn("MIT fixture license\nCopyright Alpha Author", notice)

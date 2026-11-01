@@ -8,7 +8,7 @@ their own licenses.
 
 ## Scope and provenance
 
-- Inventory source: `apps/desktop/Cargo.lock` (SHA-256 `63f16f238c25a4dd08a8ebdf36296a5b5f88b7c67076e9f6b40599029b316980`),
+- Inventory source: `apps/desktop/Cargo.lock` (SHA-256 of LF-normalized bytes: `63f16f238c25a4dd08a8ebdf36296a5b5f88b7c67076e9f6b40599029b316980`),
   cross-checked against `cargo metadata --locked --format-version 1`.
 - This document lists 674 third-party packages from the resolved desktop workspace,
   including transitive and target-specific packages. It is a lockfile superset, not a
