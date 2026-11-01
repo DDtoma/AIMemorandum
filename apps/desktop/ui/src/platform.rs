@@ -10,6 +10,16 @@ pub struct CaptureRegion {
     pub height: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DisplayGeometry {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    /// Physical pixels per logical unit in the captured frame and crop path.
+    pub scale_factor: f64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CapturedImage {
     pub path: PathBuf,
@@ -25,12 +35,25 @@ pub struct DeviceCredentials {
 }
 
 pub trait Screenshot {
+    fn capture_full(&self) -> Result<CapturedImage, UiError> {
+        Err(UiError::Platform("当前平台尚未实现静态全屏截图".to_owned()))
+    }
+
     fn capture(&self, region: CaptureRegion) -> Result<CapturedImage, UiError>;
+
+    fn capture_display(&self) -> Option<DisplayGeometry> {
+        None
+    }
+
+    fn cancel_capture(&self) {}
+
+    fn release_capture(&self, _image: &CapturedImage) {}
 }
 
 pub trait Clipboard {
     fn read_text(&self) -> Result<Option<String>, UiError>;
     fn read_image(&self) -> Result<Option<CapturedImage>, UiError>;
+    fn release_image(&self, _image: &CapturedImage) {}
 }
 
 pub trait TextRecognizer: Send {

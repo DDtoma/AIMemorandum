@@ -1,3 +1,6 @@
+use crate::platform::DisplayGeometry;
+use std::path::PathBuf;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ItemFilter {
     #[default]
@@ -103,6 +106,10 @@ pub struct TrayModel {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ScreenshotOverlayModel {
+    pub generation: u64,
+    pub active: bool,
+    pub background: Option<PathBuf>,
+    pub display: Option<DisplayGeometry>,
     pub start_x: Option<f64>,
     pub start_y: Option<f64>,
     pub current_x: f64,

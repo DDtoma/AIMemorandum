@@ -30,6 +30,7 @@ where
 pub struct UiUpdate {
     pub view: ViewModel,
     pub error: Option<String>,
+    pub shutdown_finished: bool,
 }
 
 #[derive(Clone)]
@@ -57,18 +58,21 @@ impl UiWorker {
                 .send(UiUpdate {
                     view: controller.snapshot(),
                     error: None,
+                    shutdown_finished: false,
                 })
                 .is_err()
             {
                 return;
             }
             while let Ok(intent) = intent_receiver.recv() {
+                let shutdown = matches!(intent, UiIntent::Shutdown);
                 let result = controller.dispatch(intent);
                 let update = UiUpdate {
                     view: controller.snapshot(),
                     error: result.err().map(|error| error.to_string()),
+                    shutdown_finished: shutdown,
                 };
-                if update_sender.send(update).is_err() {
+                if update_sender.send(update).is_err() || shutdown {
                     break;
                 }
             }
@@ -110,10 +114,16 @@ mod tests {
             view: ViewModel::default(),
         });
         let (sender, updates) = worker.into_parts();
-        updates.recv_timeout(Duration::from_secs(1)).unwrap();
+        let initial = updates.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert!(!initial.shutdown_finished);
         sender.send(UiIntent::Refresh).unwrap();
         let update = updates.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert!(!update.shutdown_finished);
         let worker_thread = update.view.capture.message.unwrap();
         assert_ne!(worker_thread, format!("{:?}", std::thread::current().id()));
+
+        sender.send(UiIntent::Shutdown).unwrap();
+        let shutdown = updates.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert!(shutdown.shutdown_finished);
     }
 }

@@ -1,0 +1,45 @@
+name: Linux desktop
+
+on:
+  push:
+    paths:
+      - "apps/desktop/**"
+      - ".github/workflows/linux-desktop.yml"
+  pull_request:
+    paths:
+      - "apps/desktop/**"
+      - ".github/workflows/linux-desktop.yml"
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libdbus-1-dev libpipewire-0.3-dev \
+            libspa-0.2-dev libssl-dev libfontconfig1-dev libwayland-dev \
+            libegl1-mesa-dev libgl1-mesa-dev libgbm-dev libxkbcommon-dev \
+            libx11-dev libx11-xcb-dev libxcb1-dev libxcb-randr0-dev \
+            libxcb-shm0-dev libxfixes-dev libxrandr-dev
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop
+      - run: cargo fmt --all --check
+      - run: cargo test --workspace
+      - run: cargo build --release -p aimemorandum-linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aimemorandum-linux-x86_64
+          path: |
+            apps/desktop/target/release/aimemorandum
+            apps/desktop/linux/packaging/
+          if-no-files-found: error

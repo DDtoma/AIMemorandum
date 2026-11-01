@@ -1,10 +1,11 @@
 use aimemorandum_core::{Attachment, Item, ItemKind, LocalStore, SubmitKey, TaskState};
 use aimemorandum_ui::{
-    CaptureRegion, CapturedImage, Clipboard, Clock, DesktopShell, DeviceCredentials, Enrollment,
-    ItemFilter, Screenshot, TextRecognizer, UiController, UiError, UiIntent,
+    CaptureRegion, CapturedImage, Clipboard, Clock, DesktopShell, DeviceCredentials,
+    DisplayGeometry, Enrollment, ItemFilter, Screenshot, TextRecognizer, UiController, UiError,
+    UiIntent,
 };
 use chrono::{DateTime, Duration, TimeZone, Utc};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
 struct FixedClock(DateTime<Utc>);
@@ -481,9 +482,32 @@ fn failed_enrollment_does_not_mark_device_registered() {
 struct FakeScreenshot {
     path: std::path::PathBuf,
     regions: std::sync::Arc<std::sync::Mutex<Vec<CaptureRegion>>>,
+    full_frames: std::sync::Arc<std::sync::Mutex<usize>>,
+    cancellations: std::sync::Arc<std::sync::Mutex<usize>>,
+    releases: std::sync::Arc<std::sync::Mutex<Vec<std::path::PathBuf>>>,
 }
 
 impl Screenshot for FakeScreenshot {
+    fn capture_full(&self) -> Result<CapturedImage, UiError> {
+        *self.full_frames.lock().unwrap() += 1;
+        Ok(CapturedImage {
+            path: self.path.clone(),
+            mime: "image/png".to_owned(),
+            pixel_width: 100,
+            pixel_height: 100,
+        })
+    }
+
+    fn capture_display(&self) -> Option<DisplayGeometry> {
+        Some(DisplayGeometry {
+            x: -100,
+            y: 50,
+            width: 1920,
+            height: 1080,
+            scale_factor: 2.0,
+        })
+    }
+
     fn capture(&self, region: CaptureRegion) -> Result<CapturedImage, UiError> {
         self.regions.lock().unwrap().push(region);
         Ok(CapturedImage {
@@ -493,12 +517,21 @@ impl Screenshot for FakeScreenshot {
             pixel_height: 3,
         })
     }
+
+    fn cancel_capture(&self) {
+        *self.cancellations.lock().unwrap() += 1;
+    }
+
+    fn release_capture(&self, image: &CapturedImage) {
+        self.releases.lock().unwrap().push(image.path.clone());
+    }
 }
 
 #[derive(Clone)]
 struct FakeClipboard {
     text: Option<String>,
     image: Option<CapturedImage>,
+    releases: std::sync::Arc<std::sync::Mutex<Vec<PathBuf>>>,
 }
 
 impl Clipboard for FakeClipboard {
@@ -508,6 +541,10 @@ impl Clipboard for FakeClipboard {
 
     fn read_image(&self) -> Result<Option<CapturedImage>, UiError> {
         Ok(self.image.clone())
+    }
+
+    fn release_image(&self, image: &CapturedImage) {
+        self.releases.lock().unwrap().push(image.path.clone());
     }
 }
 
@@ -607,14 +644,110 @@ fn dropped_image_saves_immediately_and_invalid_image_retains_draft() {
 }
 
 #[test]
+fn stale_screenshot_output_failure_cannot_cancel_a_newer_frame() {
+    let directory = tempfile::tempdir().unwrap();
+    let image_path = directory.path().join("screen.png");
+    write_png(&image_path);
+    let cancellations = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let screenshot = FakeScreenshot {
+        path: image_path,
+        regions: Default::default(),
+        full_frames: Default::default(),
+        cancellations: cancellations.clone(),
+        releases: Default::default(),
+    };
+    let mut ui = UiController::new(
+        LocalStore::open(directory.path()).unwrap(),
+        screenshot,
+        NoClipboard,
+        NoEnrollment,
+        NoShell,
+        FixedClock(now()),
+    )
+    .unwrap();
+    ui.dispatch(UiIntent::BeginScreenshot { generation: 1 })
+        .unwrap();
+    ui.dispatch(UiIntent::BeginScreenshot { generation: 2 })
+        .unwrap();
+    assert_eq!(ui.view().screenshot.generation, 2);
+
+    ui.dispatch(UiIntent::ScreenshotFailed {
+        generation: 1,
+        message: "旧输出匹配失败".to_owned(),
+    })
+    .unwrap();
+    assert!(ui.view().screenshot.active);
+    assert_eq!(ui.view().screenshot.generation, 2);
+    assert_eq!(ui.view().capture.error, None);
+    assert_eq!(*cancellations.lock().unwrap(), 0);
+
+    ui.dispatch(UiIntent::ScreenshotFailed {
+        generation: 2,
+        message: "无法匹配截图所在显示器".to_owned(),
+    })
+    .unwrap();
+
+    assert!(!ui.view().screenshot.active);
+    assert!(ui.view().screenshot.background.is_none());
+    assert_eq!(
+        ui.view().capture.error.as_deref(),
+        Some("无法匹配截图所在显示器")
+    );
+    assert_eq!(*cancellations.lock().unwrap(), 1);
+}
+
+#[test]
+fn screenshot_failure_after_cancellation_is_ignored() {
+    let directory = tempfile::tempdir().unwrap();
+    let image_path = directory.path().join("screen.png");
+    write_png(&image_path);
+    let cancellations = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let screenshot = FakeScreenshot {
+        path: image_path,
+        regions: Default::default(),
+        full_frames: Default::default(),
+        cancellations: cancellations.clone(),
+        releases: Default::default(),
+    };
+    let mut ui = UiController::new(
+        LocalStore::open(directory.path()).unwrap(),
+        screenshot,
+        NoClipboard,
+        NoEnrollment,
+        NoShell,
+        FixedClock(now()),
+    )
+    .unwrap();
+    ui.dispatch(UiIntent::BeginScreenshot { generation: 1 })
+        .unwrap();
+    ui.dispatch(UiIntent::ScreenshotCancelled).unwrap();
+
+    ui.dispatch(UiIntent::ScreenshotFailed {
+        generation: 1,
+        message: "取消后抵达的旧路由失败".to_owned(),
+    })
+    .unwrap();
+
+    assert!(!ui.view().screenshot.active);
+    assert_eq!(ui.view().capture.error, None);
+    assert_eq!(*cancellations.lock().unwrap(), 1);
+}
+
+#[test]
 fn screenshot_selection_is_normalized_and_small_selection_cancels() {
     let directory = tempfile::tempdir().unwrap();
     let image_path = directory.path().join("screen.png");
     write_png(&image_path);
     let regions = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let full_frames = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let cancellations = std::sync::Arc::new(std::sync::Mutex::new(0));
+    let releases = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let screenshot = FakeScreenshot {
-        path: image_path,
+        path: image_path.clone(),
         regions: regions.clone(),
+        full_frames: full_frames.clone(),
+        cancellations: cancellations.clone(),
+        releases: releases.clone(),
     };
     let store = LocalStore::open(directory.path()).unwrap();
     let mut ui = UiController::new(
@@ -629,6 +762,21 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
 
     ui.dispatch(UiIntent::CaptureDraftChanged("未发送草稿".to_owned()))
         .unwrap();
+    ui.dispatch(UiIntent::BeginScreenshot { generation: 1 })
+        .unwrap();
+    assert!(ui.view().screenshot.active);
+    assert!(ui.view().screenshot.background.is_some());
+    assert_eq!(
+        ui.view().screenshot.display,
+        Some(DisplayGeometry {
+            x: -100,
+            y: 50,
+            width: 1920,
+            height: 1080,
+            scale_factor: 2.0,
+        })
+    );
+    assert_eq!(*full_frames.lock().unwrap(), 1);
     ui.dispatch(UiIntent::ScreenshotStarted { x: 90.0, y: 70.0 })
         .unwrap();
     ui.dispatch(UiIntent::ScreenshotMoved { x: 10.0, y: 20.0 })
@@ -654,6 +802,10 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
     );
     assert_eq!(ui.view().capture.draft, "");
     assert_eq!(
+        releases.lock().unwrap().as_slice(),
+        std::slice::from_ref(&image_path)
+    );
+    assert_eq!(
         LocalStore::open(directory.path()).unwrap().items().unwrap()[0].body_md,
         "未发送草稿"
     );
@@ -672,6 +824,51 @@ fn screenshot_selection_is_normalized_and_small_selection_cancels() {
         1
     );
     assert!(ui.view().screenshot.start_x.is_none());
+    assert_eq!(*cancellations.lock().unwrap(), 1);
+
+    ui.dispatch(UiIntent::BeginScreenshot { generation: 1 })
+        .unwrap();
+    ui.dispatch(UiIntent::ScreenshotCancelled).unwrap();
+    assert_eq!(*cancellations.lock().unwrap(), 2);
+    assert!(!ui.view().screenshot.active);
+}
+
+#[test]
+fn clipboard_image_is_saved_through_core_and_released() {
+    let directory = tempfile::tempdir().unwrap();
+    let image_path = directory.path().join("clipboard.png");
+    write_png(&image_path);
+    let releases = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let clipboard = FakeClipboard {
+        text: None,
+        image: Some(CapturedImage {
+            path: image_path.clone(),
+            mime: "image/png".to_owned(),
+            pixel_width: 2,
+            pixel_height: 3,
+        }),
+        releases: releases.clone(),
+    };
+    let store = LocalStore::open(directory.path()).unwrap();
+    let mut ui = UiController::new(
+        store,
+        NoScreenshot,
+        clipboard,
+        NoEnrollment,
+        NoShell,
+        FixedClock(now()),
+    )
+    .unwrap();
+
+    ui.dispatch(UiIntent::CaptureClipboard).unwrap();
+
+    let items = LocalStore::open(directory.path()).unwrap().items().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].attachments.len(), 1);
+    assert_eq!(
+        releases.lock().unwrap().as_slice(),
+        std::slice::from_ref(&image_path)
+    );
 }
 
 #[test]
@@ -713,6 +910,9 @@ fn screenshot_ocr_populates_body_and_keeps_generated_title() {
     let screenshot = FakeScreenshot {
         path: image_path,
         regions: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+        full_frames: Default::default(),
+        cancellations: Default::default(),
+        releases: Default::default(),
     };
     let mut ui = UiController::new(
         LocalStore::open(directory.path()).unwrap(),
@@ -744,6 +944,7 @@ fn clipboard_text_is_saved_through_core() {
     let clipboard = FakeClipboard {
         text: Some("剪贴板记录".to_owned()),
         image: None,
+        releases: Default::default(),
     };
     let mut ui = UiController::new(
         store,

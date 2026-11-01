@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AIMemorandum
+Comment=Capture and complete memoranda
+Exec=aimemorandum
+Icon=aimemorandum
+Terminal=false
+Categories=Utility;Office;
+StartupNotify=true

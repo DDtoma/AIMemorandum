@@ -4,6 +4,7 @@ mod controller;
 mod error;
 mod intent;
 mod model;
+mod overlay_output;
 mod platform;
 mod slint_shell;
 mod worker;
@@ -12,11 +13,16 @@ pub use controller::UiController;
 pub use error::UiError;
 pub use intent::UiIntent;
 pub use model::*;
+pub use overlay_output::{
+    output_configuration_ready, output_geometry_for_capture, select_overlay_output,
+    OutputMatchError, OutputRoute, ScreenshotOutputRouter, ScreenshotWindowAction,
+    ScreenshotWindowState,
+};
 pub use platform::*;
 
 pub use worker::{Controller, UiIntentSender, UiUpdate, UiWorker};
 
 pub use slint_shell::{
     run_slint, AttachmentData, CapturePanel, ItemRowData, ItemsWindow, ReminderPopup,
-    ScreenshotOverlay, Settings, SlintShell,
+    ScreenshotOverlay, Settings, ShellEvent, SlintShell,
 };

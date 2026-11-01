@@ -26,6 +26,7 @@ pub struct UiController<S, C, E, D, K> {
     clock: K,
     text_recognizer: Option<Box<dyn TextRecognizer>>,
     view: ViewModel,
+    screenshot_generation: u64,
 }
 
 impl<S, C, E, D, K> UiController<S, C, E, D, K>
@@ -53,6 +54,7 @@ where
             clock,
             text_recognizer: None,
             view: ViewModel::default(),
+            screenshot_generation: 0,
         };
         controller.load_settings()?;
         controller.refresh_items()?;
@@ -163,6 +165,10 @@ where
                 item_id,
                 attachment_id,
             } => self.open_attachment(&item_id, &attachment_id),
+            UiIntent::BeginScreenshot { generation } => {
+                self.screenshot_generation = generation;
+                self.begin_screenshot(generation)
+            }
             UiIntent::ScreenshotStarted { x, y } => {
                 self.view.screenshot.start_x = Some(x);
                 self.view.screenshot.start_y = Some(y);
@@ -178,8 +184,22 @@ where
                 Ok(())
             }
             UiIntent::ScreenshotFinished { x, y } => self.finish_screenshot(x, y),
-            UiIntent::ScreenshotCancelled => {
+            UiIntent::ScreenshotCancelled | UiIntent::Shutdown => {
+                self.screenshot_generation = self.screenshot_generation.wrapping_add(1);
+                self.screenshot.cancel_capture();
                 self.view.screenshot = Default::default();
+                Ok(())
+            }
+            UiIntent::ScreenshotFailed {
+                generation,
+                message,
+            } => {
+                if generation != self.screenshot_generation {
+                    return Ok(());
+                }
+                self.screenshot.cancel_capture();
+                self.view.screenshot = Default::default();
+                self.view.capture.error = Some(message);
                 Ok(())
             }
         }
@@ -466,8 +486,10 @@ where
 
     fn capture_clipboard(&mut self) -> Result<(), UiError> {
         if let Some(image) = self.clipboard.read_image()? {
-            let source = image_source(&image.path, 0)?;
-            return self.save_capture("clipboard", vec![source]);
+            let result = image_source(&image.path, 0)
+                .and_then(|source| self.save_capture("clipboard", vec![source]));
+            self.clipboard.release_image(&image);
+            return result;
         }
         if let Some(text) = self.clipboard.read_text()? {
             return self.save_content("clipboard", text, Vec::new(), false);
@@ -475,6 +497,15 @@ where
         let error = UiError::InvalidState("剪贴板没有可保存的文本或图片".to_owned());
         self.view.capture.error = Some(error.to_string());
         Err(error)
+    }
+
+    fn begin_screenshot(&mut self, generation: u64) -> Result<(), UiError> {
+        let image = self.screenshot.capture_full()?;
+        self.view.screenshot.generation = generation;
+        self.view.screenshot.display = self.screenshot.capture_display();
+        self.view.screenshot.active = true;
+        self.view.screenshot.background = Some(image.path);
+        Ok(())
     }
 
     fn finish_screenshot(&mut self, x: f64, y: f64) -> Result<(), UiError> {
@@ -485,6 +516,7 @@ where
             .zip(self.view.screenshot.start_y);
         self.view.screenshot = Default::default();
         let Some((start_x, start_y)) = start else {
+            self.screenshot.cancel_capture();
             return Ok(());
         };
         self.capture_region(normalized_region(start_x, start_y, x, y))
@@ -496,14 +528,18 @@ where
             || !region.width.is_finite()
             || !region.height.is_finite()
         {
+            self.screenshot.cancel_capture();
             return Err(UiError::InvalidState("截图坐标必须是有限数值".to_owned()));
         }
         if region.width < 8.0 || region.height < 8.0 {
+            self.screenshot.cancel_capture();
             return Ok(());
         }
         let image = self.screenshot.capture(region)?;
-        let source = image_source(&image.path, 0)?;
-        self.save_capture("screenshot", vec![source])
+        let result = image_source(&image.path, 0)
+            .and_then(|source| self.save_capture("screenshot", vec![source]));
+        self.screenshot.release_capture(&image);
+        result
     }
 
     fn open_attachment(&mut self, item_id: &str, attachment_id: &str) -> Result<(), UiError> {
