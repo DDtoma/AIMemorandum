@@ -229,6 +229,21 @@ impl SlintShell {
         &self.sender
     }
 
+    /// Hides every auxiliary window and invalidates the previous screenshot frame.
+    ///
+    /// Platform entry points use this before re-arming their native overlay so the
+    /// hide/reset sequence is not duplicated outside the shared UI crate.
+    pub fn prepare_screenshot(&self) {
+        ShellWindows {
+            capture: &self.capture,
+            items: &self.items,
+            reminder: &self.reminder,
+            settings: &self.settings,
+            screenshot: &self.screenshot,
+        }
+        .prepare_screenshot();
+    }
+
     pub fn run(self) -> Result<(), UiError> {
         self.run_inner(None, true, Box::new(|_| {}))
     }
@@ -291,12 +306,14 @@ impl SlintShell {
                             shell_screenshot_generation.set(generation);
                             screenshot_route_pending = None;
                             screenshot_state.invalidate_for_recapture();
-                            screenshot.set_output_ready(false);
-                            hide_screenshot(&screenshot);
-                            let _ = capture.hide();
-                            let _ = items.hide();
-                            let _ = reminder.hide();
-                            let _ = settings.hide();
+                            ShellWindows {
+                                capture: &capture,
+                                items: &items,
+                                reminder: &reminder,
+                                settings: &settings,
+                                screenshot: &screenshot,
+                            }
+                            .prepare_screenshot();
                             let screenshot_sender = sender.clone();
                             let requested_generation = Rc::clone(&shell_screenshot_generation);
                             Timer::single_shot(Duration::from_millis(150), move || {
@@ -473,6 +490,17 @@ struct ShellWindows<'a> {
     reminder: &'a ReminderPopup,
     settings: &'a Settings,
     screenshot: &'a ScreenshotOverlay,
+}
+
+impl ShellWindows<'_> {
+    fn prepare_screenshot(&self) {
+        self.screenshot.set_output_ready(false);
+        hide_screenshot(self.screenshot);
+        let _ = self.capture.hide();
+        let _ = self.items.hide();
+        let _ = self.reminder.hide();
+        let _ = self.settings.hide();
+    }
 }
 
 #[derive(Clone, Copy)]

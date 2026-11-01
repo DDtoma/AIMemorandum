@@ -235,10 +235,7 @@ impl Runtime {
                 shell.screenshot.invoke_cancelled();
                 let monitors = monitor_geometries()?;
                 let bounds = virtual_desktop_bounds(&monitors)?;
-                let _ = shell.capture.hide();
-                let _ = shell.items.hide();
-                let _ = shell.settings.hide();
-                let _ = shell.reminder.hide();
+                shell.prepare_screenshot();
                 shell.screenshot.show().map_err(platform)?;
                 shell
                     .screenshot

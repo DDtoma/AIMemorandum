@@ -1,5 +1,5 @@
 use crate::SessionKind;
-use aimemorandum_ui::ShellEvent;
+use aimemorandum_ui::{ShellEvent, TRAY_CLIPBOARD, TRAY_ITEMS, TRAY_SCREENSHOT};
 use ashpd::desktop::global_shortcuts::{GlobalShortcuts, NewShortcut};
 use futures_util::StreamExt;
 use global_hotkey::{
@@ -108,9 +108,9 @@ async fn run_portal_shortcuts(events: Sender<ShellEvent>) -> Result<(), String> 
     let mut activated = proxy.receive_activated().await.map_err(display)?;
     let shortcuts = [
         NewShortcut::new("toggle-panel", "切换记录窗口").preferred_trigger("CTRL+ALT+M"),
-        NewShortcut::new("screenshot", "截图").preferred_trigger("CTRL+ALT+S"),
-        NewShortcut::new("save-clipboard", "保存剪贴板").preferred_trigger("CTRL+ALT+V"),
-        NewShortcut::new("items", "查看记录").preferred_trigger("CTRL+ALT+L"),
+        NewShortcut::new("screenshot", TRAY_SCREENSHOT).preferred_trigger("CTRL+ALT+S"),
+        NewShortcut::new("save-clipboard", TRAY_CLIPBOARD).preferred_trigger("CTRL+ALT+V"),
+        NewShortcut::new("items", TRAY_ITEMS).preferred_trigger("CTRL+ALT+L"),
     ];
     let bound = proxy
         .bind_shortcuts(&session, &shortcuts, None, Default::default())

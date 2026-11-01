@@ -43,7 +43,9 @@ open "$HOME/Applications/AIMemorandum.app"
 
 ## Windows / Linux 本地打包（不做分发）
 
-本轮只验证**本地打包**：没有分发平台，不做新 CI/CD、上传、发布、签名或公证，不改 `.github/workflows/linux-desktop.yml`。尚未做干净系统验收，也未用安装包完成「注册 → 记录 → 同步 → 提醒」端到端验收。命令均从仓库根目录执行，产物写入已被 Git 忽略的 `apps/desktop/dist`，不要提交大型产物。
+本轮只验证**本地打包**：没有分发平台，不做新 CI/CD、上传、发布、签名或公证。仓库已有 `.github/workflows/linux-desktop.yml`（#8 引入的 Linux 构建检查，只上传构建产物，不发布）；#9 未新增或修改发布 CI。尚未做干净系统验收，也未用安装包完成「注册 → 记录 → 同步 → 提醒」端到端验收。命令均从仓库根目录执行，产物写入已被 Git 忽略的 `apps/desktop/dist`，不要提交大型产物。
+
+两个构建脚本只打包**宿主架构**的原生二进制。`-Architecture` / `--architecture` 必须与宿主架构一致；请求跨架构标签会直接失败，不会把 amd64 二进制伪装成 arm64。
 
 ### 许可与第三方通知
 
@@ -60,7 +62,7 @@ python -B scripts/generate-third-party-notices.py --offline --check
 
 ### Windows NSIS
 
-依赖 Rust/Cargo、PowerShell、NSIS 3。脚本通过 `MAKENSIS` 环境变量或 PATH 查找 makensis，不含本机编译器路径。默认构建 release；已有二进制时用 `-SkipBuild`，也可传 `-Binary`、`-OutputDir`、`-Architecture`：
+依赖 Rust/Cargo、PowerShell、NSIS 3。脚本通过 `MAKENSIS` 环境变量或 PATH 查找 makensis，不含本机编译器路径。默认构建 release；已有二进制时用 `-SkipBuild`，也可传 `-Binary`、`-OutputDir`、`-Architecture`。`-Architecture` 必须与宿主一致（x86_64 或 aarch64），跨架构请求会被拒绝：
 
 ```powershell
 # 可选：$env:MAKENSIS = "<你的 NSIS 目录>\Bin\makensis.exe"
@@ -91,7 +93,7 @@ bash scripts/build-linux-packages.sh --deb --appimage
 bash scripts/build-linux-packages.sh --deb --appimage --skip-build
 ```
 
-也可传 `--binary`、`--output-dir`、`--architecture`。默认产物为 `apps/desktop/dist/aimemorandum_<version>_amd64.deb` 与 `apps/desktop/dist/AIMemorandum-<version>-x86_64.AppImage`，均带桌面元数据、SVG、许可与通知。AppImage 还在 AppDir 顶层携带已检入的 256×256 `apps/desktop/linux/packaging/aimemorandum.png`，满足 appimagetool 的图标检查；构建时只复制 PNG，不需要转换器。
+也可传 `--binary`、`--output-dir`、`--architecture`（只接受与宿主一致的 x86_64/amd64 或 aarch64/arm64）。默认产物为 `apps/desktop/dist/aimemorandum_<version>_amd64.deb` 与 `apps/desktop/dist/AIMemorandum-<version>-x86_64.AppImage`，均带桌面元数据、SVG、许可与通知。AppImage 还在 AppDir 顶层携带已检入的 256×256 `apps/desktop/linux/packaging/aimemorandum.png`，满足 appimagetool 的图标检查；构建时只复制 PNG，不需要转换器。
 
 deb 隔离「安装/卸载」通过解包和删除临时目录完成，不调用系统包管理器或 maintainer scripts：
 

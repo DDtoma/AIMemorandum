@@ -8,6 +8,7 @@ import io
 import json
 import os
 from pathlib import Path
+import platform
 import shutil
 import subprocess
 import tarfile
@@ -23,6 +24,14 @@ def manifest_version(path: Path) -> str:
         if line.startswith("version"):
             return line.split('"', 2)[1]
     raise AssertionError(f"no package version in {path}")
+
+
+def host_architecture() -> str:
+    machine = platform.machine().lower()
+    mapping = {"x86_64": "x86_64", "amd64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}
+    if machine not in mapping:
+        raise unittest.SkipTest(f"unsupported test host architecture: {machine}")
+    return mapping[machine]
 
 
 def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -135,6 +144,31 @@ class LinuxPackageTests(unittest.TestCase):
 
         version = manifest_version(LINUX_MANIFEST)
         self.assertTrue((output / f"aimemorandum_{version}_amd64.deb").is_file())
+
+    def test_builder_rejects_cross_architecture_labels(self) -> None:
+        host = host_architecture()
+        other = "aarch64" if host == "x86_64" else "x86_64"
+        result = subprocess.run(
+            [
+                "bash",
+                "scripts/build-linux-packages.sh",
+                "--deb",
+                "--skip-build",
+                "--binary",
+                str(self.binary),
+                "--output-dir",
+                str(self.dist),
+                "--architecture",
+                other,
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("host architecture", result.stderr)
+        self.assertFalse(list(self.dist.glob("*.deb")))
 
     def test_appimage_stage_and_tool_contract(self) -> None:
         capture = self.work / "captured-appdir"
@@ -295,6 +329,28 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("apps/desktop/Cargo.lock", notices)
         self.assertNotIn("will be replaced", notices)
 
+    def test_unix_packaging_sources_use_lf_endings(self) -> None:
+        attributes = (ROOT / ".gitattributes").read_text(encoding="utf-8")
+        self.assertIn("*.sh text eol=lf", attributes)
+        self.assertIn("*.desktop text eol=lf", attributes)
+        self.assertIn("*.py text eol=lf", attributes)
+        for relative in [
+            "scripts/build-linux-packages.sh",
+            "apps/desktop/linux/packaging/aimemorandum.desktop",
+            "scripts/test-desktop-packaging.py",
+        ]:
+            content = (ROOT / relative).read_bytes()
+            self.assertNotIn(b"\r\n", content, f"{relative} must stay LF")
+
+    def test_root_and_proposal_docs_describe_desktop_clients(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("apps/desktop/", readme)
+        self.assertIn("Windows", readme)
+        self.assertIn("Linux", readme)
+        proposal = (ROOT / "docs/proposals/AM-002-desktop-port/README.md").read_text(encoding="utf-8")
+        self.assertIn("已实现", proposal)
+        self.assertNotIn("不是已实现的代码", proposal)
+
     def test_local_packaging_documentation_and_limits(self) -> None:
         run_guide = (ROOT / "docs/RUN.md").read_text(encoding="utf-8")
         for expected in [
@@ -310,6 +366,8 @@ class RepositoryContractTests(unittest.TestCase):
             "注册",
             "同步",
             "提醒",
+            "宿主架构",
+            "跨架构",
         ]:
             self.assertIn(expected, run_guide)
         linux = (ROOT / "apps/desktop/linux/README.md").read_text(encoding="utf-8")
@@ -389,6 +447,39 @@ class WindowsInstallerTests(unittest.TestCase):
         self.assertNotIn("CreateShortcut", script)
         self.assertNotIn("MUI_FINISHPAGE_RUN", script)
         self.assertNotRegex(script, r"(?im)^\s*Exec(?:Shell)?\s")
+
+    def test_builder_rejects_cross_architecture_labels(self) -> None:
+        shell = shutil.which("pwsh") or shutil.which("powershell")
+        host = host_architecture()
+        other = "aarch64" if host == "x86_64" else "x86_64"
+        env = os.environ.copy()
+        env.update(MAKENSIS=str(self.tool), MAKENSIS_ARGUMENTS=str(self.arguments))
+        result = subprocess.run(
+            [
+                shell,
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "scripts/build-windows-installer.ps1",
+                "-SkipBuild",
+                "-Binary",
+                str(self.binary),
+                "-OutputDir",
+                str(self.dist),
+                "-Architecture",
+                other,
+            ],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            errors="replace",
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("host architecture", result.stdout + result.stderr)
+        self.assertFalse(list(self.dist.glob("*.exe")))
 
 
 if __name__ == "__main__":

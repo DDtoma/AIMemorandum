@@ -1,4 +1,7 @@
-use aimemorandum_ui::{TrayEntry, UiError};
+use aimemorandum_ui::{
+    tray_completion_label, TrayEntry, UiError, TRAY_CLIPBOARD, TRAY_ITEMS, TRAY_QUICK_CAPTURE,
+    TRAY_QUIT, TRAY_SCREENSHOT,
+};
 use tray_icon::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     Icon, TrayIcon, TrayIconBuilder,
@@ -60,7 +63,7 @@ fn build_menu(entries: &[TrayEntry]) -> Result<Menu, UiError> {
     for entry in entries {
         let item = MenuItem::with_id(
             format!("complete:{}", entry.id),
-            format!("完成 · {}", entry.title),
+            tray_completion_label(&entry.title),
             true,
             None,
         );
@@ -70,11 +73,11 @@ fn build_menu(entries: &[TrayEntry]) -> Result<Menu, UiError> {
         append(&menu, &PredefinedMenuItem::separator())?;
     }
     for (id, title) in [
-        ("toggle-panel", "快速记录"),
-        ("screenshot", "截图记录"),
-        ("save-clipboard", "剪贴板速存"),
-        ("items", "查看记录"),
-        ("quit", "退出"),
+        ("toggle-panel", TRAY_QUICK_CAPTURE),
+        ("screenshot", TRAY_SCREENSHOT),
+        ("save-clipboard", TRAY_CLIPBOARD),
+        ("items", TRAY_ITEMS),
+        ("quit", TRAY_QUIT),
     ] {
         append(&menu, &MenuItem::with_id(id, title, true, None))?;
     }

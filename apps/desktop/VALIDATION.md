@@ -62,7 +62,7 @@ Linux OCR 不在 #8 范围。以上结果不证明 GNOME/KDE Wayland、多显示
 
 ## 5. 本地安装包验证（#9，非发布验收）
 
-按维护者限定的范围，只验证本地 Windows NSIS、Linux deb/AppImage；不做 CI、分发、签名或公证。命令与边界见 [../docs/RUN.md](../docs/RUN.md)，完整哈希见 [#9](https://github.com/DDtoma/AIMemorandum/issues/9)。
+按维护者限定的范围，只验证本地 Windows NSIS、Linux deb/AppImage；不做 CI、分发、签名或公证。命令与边界见 [../../docs/RUN.md](../../docs/RUN.md)，完整哈希见 [#9](https://github.com/DDtoma/AIMemorandum/issues/9)。
 
 - Windows：NSIS 3.11 实际构建成功；最终安装包在隔离目录安装/卸载均 exit 0。安装后的 exe、LICENSE、THIRD_PARTY_NOTICES.md 与源哈希一致，卸载目录删除，Start Menu shortcut、HKCU Uninstall、HKCU Run 均未改变。未启动应用。
 - deb：实际检查 control 与 payload，包内 `usr/bin/aimemorandum` 与 release 二进制逐字节一致；通过 ar/tar 解包检查，不声称已在干净系统用包管理器安装。

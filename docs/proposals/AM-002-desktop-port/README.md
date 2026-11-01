@@ -3,7 +3,7 @@
 | 属性 | 内容 |
 |---|---|
 | 日期 | 2026-10-26 |
-| 状态 | 方向已确认，待 Phase 0 风险验证；不是已实现的代码 |
+| 状态 | 已实现并通过 Windows 与 XFCE/X11 实机验收；本地 NSIS/deb/AppImage 已构建；GNOME/KDE Wayland、Linux 多屏/非 1 缩放与干净系统全链路待人工验收；未发布 |
 | 范围 | 新增 Windows / Linux 桌面客户端；macOS 端保持 AppKit 原生不动；服务端协议零改动 |
 | 上游约束 | AM-001 的领域模型、同步语义、冲突规则全部继承，不改协议 |
 
@@ -128,6 +128,8 @@ KDE 用 layer-shell 真覆盖层；GNOME 用全屏无边框普通窗口代替（
 | **Phase 4：打包发布（5–8 人日）** | Windows NSIS 安装包（无额外运行时依赖）；Linux deb + AppImage（无 webkitgtk 依赖，体积小）；CI 三平台构建与测试；GPLv3 声明与第三方许可清单 | 干净系统安装 → 注册 → 记录 → 同步 → 提醒全链路；安装/卸载干净 |
 
 总计约 24–35 人日，一人全职约 5–7 周。
+
+> 2026-11-01 状态更新：Phase 1–3 的 Windows 与 XFCE/X11 路径已实现并完成实机验收；Phase 4 只完成本地 NSIS、deb、AppImage 与许可清单，未实施 CI、分发、签名或公证，干净系统全链路待验收。GNOME/KDE Wayland、Linux 多屏与非 1 缩放仍待实机。验收证据与缺口见 [apps/desktop/VALIDATION.md](../../../apps/desktop/VALIDATION.md)。
 
 ## 附录
 

@@ -25,7 +25,7 @@ export component CapturePanel inherits Window {
         spacing: 10px;
         HorizontalBox {
             Text { text: "新记录"; font-size: 20px; font-weight: 700; horizontal-stretch: 1; }
-            Button { text: "记录列表"; clicked => root.show-items(); }
+            Button { text: "查看记录"; clicked => root.show-items(); }
             Button { text: "设置"; clicked => root.show-settings(); }
         }
         editor := TextEdit {
@@ -45,7 +45,7 @@ export component CapturePanel inherits Window {
         if root.message != "": Text { text: root.message; color: #2e7d32; }
         HorizontalBox {
             spacing: 8px;
-            Button { text: "保存剪贴板"; clicked => root.clipboard(); }
+            Button { text: "剪贴板速存"; clicked => root.clipboard(); }
             Rectangle { horizontal-stretch: 1; }
             Button { text: "保存 (Enter)"; primary: true; clicked => root.submit(); }
         }

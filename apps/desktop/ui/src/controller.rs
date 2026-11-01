@@ -736,7 +736,7 @@ fn detail_model(item: &Item, synchronized: bool) -> ItemDetailModel {
 
 fn tray_title(title: &str) -> String {
     if title.chars().count() > 36 {
-        format!("{}…", title.chars().take(36).collect::<String>())
+        format!("{}…", title.chars().take(35).collect::<String>())
     } else {
         title.to_owned()
     }

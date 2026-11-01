@@ -92,6 +92,20 @@ impl Default for SettingsModel {
     }
 }
 
+pub const TRAY_QUICK_CAPTURE: &str = "快速记录";
+pub const TRAY_SCREENSHOT: &str = "截图记录";
+pub const TRAY_CLIPBOARD: &str = "剪贴板速存";
+pub const TRAY_ITEMS: &str = "查看记录";
+pub const TRAY_QUIT: &str = "退出";
+
+pub fn tray_quick_capture_label(open_count: usize) -> String {
+    format!("{TRAY_QUICK_CAPTURE}（待办 {open_count}）")
+}
+
+pub fn tray_completion_label(title: &str) -> String {
+    format!("完成 · {title}")
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrayEntry {
     pub id: String,

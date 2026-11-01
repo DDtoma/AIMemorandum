@@ -22,7 +22,10 @@ Options:
   --skip-build          Do not run cargo; require an existing release binary.
   --binary PATH         Use this Linux executable instead of target/release.
   --output-dir DIR      Package destination (default: apps/desktop/dist).
-  --architecture ARCH   x86_64/amd64 or aarch64/arm64 (default: x86_64).
+  --architecture ARCH   Host architecture x86_64/amd64 or aarch64/arm64
+                        (default: x86_64). Cross-architecture packaging is
+                        rejected because the script only packages a native
+                        executable.
   -h, --help            Show this help.
 
 With neither --deb nor --appimage, both package types are built.
@@ -66,15 +69,26 @@ fi
 
 case "$ARCHITECTURE" in
   x86_64|amd64)
+    ARCHITECTURE=x86_64
     DEB_ARCHITECTURE=amd64
     APPIMAGE_ARCHITECTURE=x86_64
     ;;
   aarch64|arm64)
+    ARCHITECTURE=aarch64
     DEB_ARCHITECTURE=arm64
     APPIMAGE_ARCHITECTURE=aarch64
     ;;
   *) fail "unsupported architecture: $ARCHITECTURE" ;;
 esac
+
+case "$(uname -m)" in
+  x86_64|amd64) HOST_ARCHITECTURE=x86_64 ;;
+  aarch64|arm64) HOST_ARCHITECTURE=aarch64 ;;
+  *) fail "unsupported host architecture: $(uname -m)" ;;
+esac
+if [[ "$ARCHITECTURE" != "$HOST_ARCHITECTURE" ]]; then
+  fail "host architecture is $HOST_ARCHITECTURE; cross-architecture packaging for $ARCHITECTURE requires a native build"
+fi
 
 VERSION=$(awk -F'"' '/^version = "/ { print $2; exit }' "$DESKTOP_DIR/linux/Cargo.toml")
 [[ -n "$VERSION" ]] || fail "cannot read version from linux/Cargo.toml"

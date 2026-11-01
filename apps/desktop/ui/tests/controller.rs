@@ -274,7 +274,7 @@ fn tray_is_oldest_first_limited_to_twelve_and_truncates_unicode_chars() {
     assert_eq!(ui.view().tray.entries.len(), 12);
     assert_eq!(
         ui.view().tray.entries[0].title,
-        format!("{}…", "记".repeat(36))
+        format!("{}…", "记".repeat(35))
     );
     assert_eq!(ui.view().tray.entries[1].title, "记录 1");
     assert_eq!(ui.view().tray.entries[11].title, "记录 11");

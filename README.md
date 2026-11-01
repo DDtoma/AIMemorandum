@@ -1,17 +1,33 @@
 # AIMemorandum
 
-Mac 原生菜单栏备忘录，用于快速记下文字、截图和剪贴板内容，并通过待办和提醒继续处理未完成事项。
+本机优先的桌面备忘录，用于快速记下文字、截图和剪贴板内容，并通过待办和提醒继续处理未完成事项。macOS 使用原生客户端；Windows 与 Linux 使用共享 Rust + Slint 客户端，代码位于 `apps/desktop/`。
 
 ## 使用
 
+macOS 默认快捷键：
+
 | 操作 | 快捷方式 |
 |---|---|
-| 记录文字 | ⌥⌘M → 输入 → Enter |
-| 区域截图 | ⌥⌘S → 框选松手，直接保存 |
+| 快速记录 | ⌥⌘M → 输入 → Enter |
+| 截图记录 | ⌥⌘S → 框选松手，直接保存 |
 | 剪贴板速存 | 复制内容 → ⌥⌘V |
 | 查看记录 | ⌥⌘L |
 
-记录先保存到本机，联网后同步。截图可使用本机 Vision 提取文字。应用以独立 `.app` 安装，屏幕录制权限授予 AIMemorandum 本身。
+Windows / Linux 默认快捷键为 `Ctrl+Alt+M / S / V / L`。记录先保存到本机，联网后同步。macOS 截图可使用本机 Vision 提取文字；Windows OCR 与 Linux 截图依赖见 [运行指南](docs/RUN.md)。应用以独立安装包或可执行文件运行，屏幕录制权限授予 AIMemorandum 本身。
+
+## 桌面客户端（Windows / Linux）
+
+共享界面与控制器在 `apps/desktop/ui/`，Windows 与 Linux 平台适配分别位于 `apps/desktop/windows/` 和 `apps/desktop/linux/`。本地打包只生成 NSIS、deb 与 AppImage，不签名、不公证、不发布，也不新增发布 CI：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-installer.ps1
+```
+
+```bash
+bash scripts/build-linux-packages.sh --deb --appimage
+```
+
+完整命令、隔离安装/解包步骤与边界见[运行指南](docs/RUN.md)。Windows 与 XFCE/X11 路径已有实机验收记录，见 [apps/desktop/VALIDATION.md](apps/desktop/VALIDATION.md)；GNOME/KDE Wayland、Linux 多屏与非 1 缩放、干净系统完整链路仍待人工验收。
 
 ## 构建 Mac 应用
 
@@ -46,7 +62,8 @@ swift run --disable-sandbox memorandum-tests
 
 ## 项目结构
 
-- `apps/macos/`：菜单栏客户端、本地存储、同步、截图和提醒。
+- `apps/macos/`：macOS 菜单栏客户端、本地存储、同步、截图和提醒。
+- `apps/desktop/`：Windows / Linux 共享 Rust + Slint 客户端、平台适配、打包与验收记录。
 - `services/api/`：Go API、事项操作、附件与同步存储。
 - `scripts/`：应用打包、安装和签名检查。
 - `docs/RUN.md`：当前开发运行方式与已知边界。

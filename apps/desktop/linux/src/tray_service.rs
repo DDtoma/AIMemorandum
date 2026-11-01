@@ -1,5 +1,8 @@
 use crate::{latest::Latest, TrayMenuModel};
-use aimemorandum_ui::{ShellEvent, ViewModel};
+use aimemorandum_ui::{
+    tray_completion_label, tray_quick_capture_label, ShellEvent, ViewModel, TRAY_CLIPBOARD,
+    TRAY_ITEMS, TRAY_QUIT, TRAY_SCREENSHOT,
+};
 use ksni::{blocking::TrayMethods as _, menu::StandardItem, MenuItem};
 use std::sync::{mpsc::Sender, Arc};
 
@@ -46,25 +49,30 @@ impl ksni::Tray for AppTray {
     }
 
     fn menu(&self) -> Vec<MenuItem<Self>> {
-        let mut menu = vec![
-            self.action(
-                format!("记录（待办 {}）", self.open_count),
-                ShellEvent::ShowCapture,
-            ),
-            self.action("截图", ShellEvent::Screenshot),
-            self.action("保存剪贴板", ShellEvent::SaveClipboard),
-            self.action("查看记录", ShellEvent::ShowItems),
-            self.action("设置", ShellEvent::ShowSettings),
-            MenuItem::Separator,
-        ];
-        menu.extend(self.model.entries().iter().map(|entry| {
-            self.action(
-                entry.title.clone(),
-                ShellEvent::CompleteItem(entry.item_id.clone()),
-            )
-        }));
+        let mut menu = self
+            .model
+            .entries()
+            .iter()
+            .map(|entry| {
+                self.action(
+                    tray_completion_label(&entry.title),
+                    ShellEvent::CompleteItem(entry.item_id.clone()),
+                )
+            })
+            .collect::<Vec<_>>();
+        if !menu.is_empty() {
+            menu.push(MenuItem::Separator);
+        }
+        menu.push(self.action(
+            tray_quick_capture_label(self.open_count),
+            ShellEvent::ShowCapture,
+        ));
+        menu.push(self.action(TRAY_SCREENSHOT, ShellEvent::Screenshot));
+        menu.push(self.action(TRAY_CLIPBOARD, ShellEvent::SaveClipboard));
+        menu.push(self.action(TRAY_ITEMS, ShellEvent::ShowItems));
+        menu.push(self.action("设置", ShellEvent::ShowSettings));
         menu.push(MenuItem::Separator);
-        menu.push(self.action("退出", ShellEvent::Quit));
+        menu.push(self.action(TRAY_QUIT, ShellEvent::Quit));
         menu
     }
 }

@@ -8,6 +8,16 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$HostArchitecture = @{
+    "AMD64" = "x86_64"
+    "ARM64" = "aarch64"
+}[$env:PROCESSOR_ARCHITECTURE.ToUpperInvariant()]
+if (-not $HostArchitecture) {
+    throw "unsupported host architecture: $env:PROCESSOR_ARCHITECTURE"
+}
+if ($Architecture -ne $HostArchitecture) {
+    throw "host architecture is $HostArchitecture; cross-architecture packaging for $Architecture requires a native build"
+}
 $Root = Split-Path -Parent $PSScriptRoot
 $Desktop = Join-Path $Root "apps/desktop"
 $Manifest = Join-Path $Desktop "windows/Cargo.toml"
