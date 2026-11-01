@@ -18,6 +18,8 @@ mod linux {
         WaylandOutputRouter, X11FrameProvider,
     };
     use aimemorandum_ui::{CoreEnrollment, ShellEvent, SlintShell, UiController};
+    use i_slint_backend_winit::{winit::event::WindowEvent, WinitWindowAccessor};
+    use slint::{ComponentHandle, ModelRc, VecModel};
     use std::{
         error::Error,
         os::unix::net::UnixStream,
@@ -68,12 +70,21 @@ mod linux {
             shell,
             SystemClock,
         )?;
+        if std::env::var_os("SLINT_BACKEND").is_none() {
+            // FemtoVG's OpenGL driver allocations exceed the resident-memory budget
+            // on a plain XFCE session. Keep an explicit environment override for
+            // platforms where another renderer is preferred.
+            let backend =
+                i_slint_backend_winit::Backend::new_with_renderer_by_name(Some("software"))?;
+            slint::platform::set_platform(Box::new(backend))?;
+        }
         let ui = SlintShell::new(controller)?;
         let ui = if session == SessionKind::Wayland {
             ui.with_screenshot_output_router(Box::new(WaylandOutputRouter))
         } else {
             ui
         };
+        install_native_drop_handler(&ui);
         let (events, receiver) = mpsc::channel::<ShellEvent>();
         let _hotkeys = match start_hotkeys(session, events.clone()) {
             Ok(service) => Some(service),
@@ -100,6 +111,19 @@ mod linux {
             }
         })?;
         Ok(())
+    }
+
+    fn install_native_drop_handler(ui: &SlintShell) {
+        let capture = ui.capture.as_weak();
+        ui.capture.window().on_winit_window_event(move |_, event| {
+            if let WindowEvent::DroppedFile(path) = event {
+                if let Some(capture) = capture.upgrade() {
+                    let paths = vec![path.to_string_lossy().into_owned().into()];
+                    capture.invoke_paths_dropped(ModelRc::new(VecModel::from(paths)));
+                }
+            }
+            slint::winit_030::EventResult::Propagate
+        });
     }
 
     struct IpcService {

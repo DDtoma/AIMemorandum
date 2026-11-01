@@ -193,7 +193,7 @@ impl SlintShell {
                 generation.set(generation.get().wrapping_add(1));
                 if let Some(screenshot) = screenshot.upgrade() {
                     screenshot.set_output_ready(false);
-                    let _ = screenshot.hide();
+                    hide_screenshot(&screenshot);
                 }
                 let _ = sender.send(UiIntent::ScreenshotCancelled);
             }
@@ -256,7 +256,7 @@ impl SlintShell {
             screenshot_generation,
         } = self;
         if show_capture {
-            capture.show().map_err(platform_error)?;
+            show_and_focus_capture(&capture);
         }
         let timer = Timer::default();
         let mut last_view: Option<ViewModel> = None;
@@ -271,13 +271,13 @@ impl SlintShell {
                 while let Ok(event) = events.try_recv() {
                     match event {
                         ShellEvent::ShowCapture => {
-                            let _ = capture.show();
+                            show_and_focus_capture(&capture);
                         }
                         ShellEvent::ToggleCapture => {
                             if capture.window().is_visible() {
                                 let _ = capture.hide();
                             } else {
-                                let _ = capture.show();
+                                show_and_focus_capture(&capture);
                             }
                         }
                         ShellEvent::Screenshot => {
@@ -288,7 +288,7 @@ impl SlintShell {
                             screenshot_route_pending = None;
                             screenshot_state.invalidate_for_recapture();
                             screenshot.set_output_ready(false);
-                            let _ = screenshot.hide();
+                            hide_screenshot(&screenshot);
                             let _ = capture.hide();
                             let _ = items.hide();
                             let _ = reminder.hide();
@@ -303,7 +303,7 @@ impl SlintShell {
                             });
                         }
                         ShellEvent::SaveClipboard => {
-                            let _ = capture.show();
+                            show_and_focus_capture(&capture);
                             let _ = sender.send(UiIntent::CaptureClipboard);
                         }
                         ShellEvent::ShowItems => {
@@ -328,7 +328,7 @@ impl SlintShell {
                                 let _ = items.hide();
                                 let _ = reminder.hide();
                                 let _ = settings.hide();
-                                let _ = screenshot.hide();
+                                hide_screenshot(&screenshot);
                                 if sender.send(UiIntent::Shutdown).is_err() {
                                     let _ = slint::quit_event_loop();
                                 }
@@ -400,8 +400,22 @@ impl SlintShell {
                 let _ = sender.send(UiIntent::CheckReminders);
             }
         });
-        slint::run_event_loop().map_err(platform_error)
+        // Tray-only operation is a steady state: hiding the last window must not
+        // terminate the primary process. Only the explicit shutdown flow above
+        // may leave this event loop.
+        slint::run_event_loop_until_quit().map_err(platform_error)
     }
+}
+
+fn show_and_focus_capture(capture: &CapturePanel) {
+    let _ = capture.show();
+    let capture = capture.as_weak();
+    // X11 cannot focus an editor until its window has been mapped.
+    Timer::single_shot(Duration::from_millis(50), move || {
+        if let Some(capture) = capture.upgrade() {
+            capture.invoke_focus_editor();
+        }
+    });
 }
 
 pub fn run_slint<C: crate::Controller + 'static>(controller: C) -> Result<(), UiError> {
@@ -533,35 +547,39 @@ fn apply_update(
     settings.set_message(view.settings.message.unwrap_or_default().into());
     settings.set_error(view.settings.error.unwrap_or_default().into());
 
-    screenshot_image.apply(
-        screenshot_current
-            .then_some(view.screenshot.background.as_deref())
-            .flatten(),
-        screenshot,
-    );
+    let screenshot_background = screenshot_current
+        .then_some(view.screenshot.background.as_deref())
+        .flatten();
     match screenshot_state.synchronize_current(
         screenshot_active,
         view.screenshot.display,
         view.screenshot.generation,
         latest_screenshot_generation,
     ) {
-        ScreenshotWindowAction::Show => show_screenshot(
-            screenshot,
-            view.screenshot.display,
-            route_screenshot_output,
-            sender,
-            screenshot_route_pending,
-            view.screenshot.generation,
-        ),
+        ScreenshotWindowAction::Show => {
+            screenshot_image.apply(screenshot_background, screenshot);
+            show_screenshot(
+                screenshot,
+                view.screenshot.display,
+                route_screenshot_output,
+                sender,
+                screenshot_route_pending,
+                view.screenshot.generation,
+            );
+        }
         ScreenshotWindowAction::Hide => {
             if view.capture.error.is_some() {
                 let _ = capture.show();
             }
             *screenshot_route_pending = None;
             screenshot.set_output_ready(true);
-            let _ = screenshot.hide();
+            hide_screenshot(screenshot);
+            // Destroy the window's renderer resources before releasing the frame.
+            screenshot_image.apply(None, screenshot);
         }
-        ScreenshotWindowAction::None => {}
+        ScreenshotWindowAction::None => {
+            screenshot_image.apply(screenshot_background, screenshot);
+        }
     }
 }
 
@@ -612,8 +630,13 @@ fn show_screenshot(
                 display.y as f32,
             ));
     }
-    screenshot.window().set_fullscreen(true);
     let _ = screenshot.show();
+    screenshot.window().set_fullscreen(true);
+}
+
+fn hide_screenshot(screenshot: &ScreenshotOverlay) {
+    screenshot.window().set_fullscreen(false);
+    let _ = screenshot.hide();
 }
 
 fn screenshot_failed(
@@ -622,7 +645,7 @@ fn screenshot_failed(
     generation: u64,
     reason: String,
 ) {
-    let _ = screenshot.hide();
+    hide_screenshot(screenshot);
     let _ = sender.send(UiIntent::ScreenshotFailed {
         generation,
         message: format!("无法将截图叠加层定位到截图所在显示器：{reason}"),

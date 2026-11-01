@@ -24,7 +24,10 @@ usual `/usr/local/bin`, `/usr/local/share/applications` and
 
 ## Session integration
 
-- X11 uses `xcap` and `global-hotkey` (`Ctrl+Alt+M/S/V/L`).
+- X11 uses `xcap` and `global-hotkey` (`Ctrl+Alt+M/S/V/L`). A conflicting
+  binding is reported without disabling the other shortcuts or CLI forwarding.
+- The default Slint renderer is software to stay within the resident-memory
+  budget on ordinary desktops. Set `SLINT_BACKEND` explicitly to override it.
 - Wayland uses the XDG ScreenCast portal and one PipeWire static frame. A
   Linux-only router waits for native-window readiness, requests fullscreen on
   the captured winit `MonitorHandle`, and waits for the compositor to confirm

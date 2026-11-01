@@ -25,6 +25,7 @@ arboard = "3.7"
 ashpd = { version = "0.13", features = ["screencast", "global_shortcuts"] }
 futures-util = "0.3"
 global-hotkey = "0.9"
+i-slint-backend-winit = { version = "1", default-features = false, features = ["renderer-software", "wayland", "x11"] }
 ksni = { version = "0.3", default-features = false, features = ["blocking", "async-io"] }
 libc = "0.2"
 pipewire = "0.10"

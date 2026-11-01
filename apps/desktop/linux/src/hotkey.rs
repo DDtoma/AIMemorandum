@@ -54,8 +54,19 @@ pub fn start_x11_hotkeys(
             HotKey::new(Some(modifiers), Code::KeyL),
         ),
     ];
-    for (_, hotkey) in &bindings {
-        manager.register(*hotkey)?;
+    let mut registered = 0_usize;
+    let mut last_error = None;
+    for (action, hotkey) in &bindings {
+        match manager.register(*hotkey) {
+            Ok(()) => registered += 1,
+            Err(error) => {
+                eprintln!("全局快捷键 {action:?} ({hotkey:?}) 注册失败：{error}");
+                last_error = Some(error);
+            }
+        }
+    }
+    if registered == 0 {
+        return Err(last_error.expect("at least one hotkey binding exists"));
     }
     let receiver = GlobalHotKeyEvent::receiver().clone();
     std::thread::spawn(move || {
