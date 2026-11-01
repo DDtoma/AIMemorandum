@@ -9,7 +9,7 @@
 
 - Windows 实机证据来自 #7 平台提交 `839c810f95a3d70d292d9fd08b92c9e885e526b8`，原始记录见 [windows/VALIDATION.md](windows/VALIDATION.md)。
 - Linux XFCE/X11 实机证据来自 #8 平台提交 `47d6fe71cffe241c6933afe3abff8b3aa17de190`，原始记录见 [#8](https://github.com/DDtoma/AIMemorandum/issues/8) 及该票列出的远端证据文件。
-- 上述实机结果先于最终合并，不冒充最终集成提交上的重新实测。合并后另跑自动回归；代码评审修复提交为 `78a5b876923b023c5e5630a733f45a5487bdfbed`，其后收口提交补充 Linux portal 快捷键文案与本文/包哈希，不把自动回归当作新的桌面证据。
+- 上述实机结果先于最终合并，不冒充最终集成提交上的重新实测。代码评审修复提交为 `78a5b876923b023c5e5630a733f45a5487bdfbed`，收口提交 `1fe04e8f973ceec18cc7f9b2da59310b5ecdd7ea` 补充 Linux portal 快捷键文案与本文/包哈希；`main` 的最终代码提交为 `920ff674668037976dfb225a89a7d5df4bdbd0e8`，仅新增 `.gitattributes` 的 notices LF 导出规则，无产品代码变化；本文以随后的文档提交落到 `main`。合并后另跑自动回归与一次真实 Rust→Go 集成 smoke，不把自动回归当作新的桌面证据。
 - Windows 与 XFCE 的隔离数据目录均用于验收，未使用用户真实数据库。具体目录见各原始记录。
 
 ## 2. 实测环境
@@ -62,7 +62,7 @@ Linux OCR 不在 #8 范围。以上结果不证明 GNOME/KDE Wayland、多显示
 
 ## 5. 本地安装包验证（#9，非发布验收）
 
-按维护者限定的范围，只验证本地 Windows NSIS、Linux deb/AppImage；不做 CI、分发、签名或公证。命令与边界见 [../../docs/RUN.md](../../docs/RUN.md)。Windows 包由代码提交 `78a5b876923b023c5e5630a733f45a5487bdfbed` 构建；Linux 包在该提交上追加 portal 快捷键文案修正后构建。哈希为最终产物实测值：
+按维护者限定的范围，只验证本地 Windows NSIS、Linux deb/AppImage；不做 CI、分发、签名或公证。命令与边界见 [../../docs/RUN.md](../../docs/RUN.md)。Windows 包由代码提交 `78a5b876923b023c5e5630a733f45a5487bdfbed` 构建；Linux 包在该提交上追加 portal 快捷键文案修正后构建（最终代码 `1fe04e8f973ceec18cc7f9b2da59310b5ecdd7ea`）。`main` 的代码提交 `920ff674668037976dfb225a89a7d5df4bdbd0e8` 只调整 notices 的 LF 导出，不改变包内产品代码；哈希为最终产物实测值：
 
 | 包 | 大小（bytes） | SHA-256 |
 | --- | ---: | --- |
@@ -74,12 +74,12 @@ Linux OCR 不在 #8 范围。以上结果不证明 GNOME/KDE Wayland、多显示
 - Windows：NSIS 3.11 实际构建成功；最终安装包在隔离目录安装/卸载均 exit 0。安装后的 exe、LICENSE、THIRD_PARTY_NOTICES.md 与源哈希一致，卸载目录删除，Start Menu shortcut、HKCU Uninstall、HKCU Run 均未改变。未启动应用。
 - deb：实际检查 control 与 payload，包内 `usr/bin/aimemorandum` 与 release 二进制逐字节一致；通过 ar/tar 解包检查，不声称已在干净系统用包管理器安装。
 - AppImage：官方 appimagetool continuous 9bab981 build 340 实际构建成功；实际 `--appimage-extract` 后，二进制、LICENSE、THIRD_PARTY_NOTICES.md、PNG 与 AppRun 均验证，两个入口可执行。未据此声称完成业务链路。
-- 最终自动验证：Windows 上 fmt、workspace tests、clippy `-D warnings`、release 构建、11 项打包合同测试、第三方清单 `--offline --check`、`services/api` 的 `go test ./...` 全部通过；Linux 从 `78a5b87` 的干净 `git archive` 执行同一组检查，打包测试 9 通过、2 项仅 Windows 的检查跳过。自动验证不等同于下节的实机验收。
+- 最终自动验证（`main` 代码提交 `920ff67`）：Windows 上 fmt、workspace tests（0 failed）、clippy `-D warnings`、release 构建、11 项打包合同测试、第三方清单 `--offline --check`、`services/api` 的 `go test ./...` 全部通过；另启动真实 `services/api`，以 `MEMO_GO_BASE_URL`/`MEMO_GO_ENROLL_CODE` 跑通默认 ignored 的 `go_integration` Rust→Go smoke。Linux 从该提交的干净 `git archive` 执行同一组检查，全部通过；打包测试 9 通过、2 项仅 Windows 的检查按平台跳过，Go 集成 smoke 同样通过。自动验证不等同于下节的实机验收。
 - 三包均未完成「干净系统安装 → 注册 → 记录 → 同步 → 提醒」全链路，不能记为发布验收通过。
 
 ## 6. 仍需人工执行的验收矩阵
 
-以下项目缺对应真实环境，保持**未验证**，不是失败，也不是通过。执行后应把系统/DE 版本、会话类型、显示器拓扑、日志、数字和必要截图追加到本文。
+以下项目缺对应真实环境，保持**未验证**，不是失败，也不是通过。执行后应把系统/DE 版本、会话类型、显示器拓扑、日志、数字和必要截图追加到本文。这些项目已转入 [#11](https://github.com/DDtoma/AIMemorandum/issues/11) 跟踪。
 
 ### 6.1 GNOME/Wayland 与 KDE/Wayland
 
@@ -107,4 +107,4 @@ Linux OCR 不在 #8 范围。以上结果不证明 GNOME/KDE Wayland、多显示
 
 ## 7. 收口结论
 
-#10 的“证据汇总与缺口记录”可以收口：Windows 与 XFCE/X11 已有真实证据，缺失环境及人工步骤已逐项命名。本文不是全平台发布认证；GNOME/KDE Wayland、Linux 多屏/非 1 缩放和干净系统业务全链路仍是明确的未验证边界。
+#10 的“证据汇总与缺口记录”可以收口：Windows 与 XFCE/X11 已有真实证据，缺失环境及人工步骤已逐项命名并转入 #11。本文不是全平台发布认证；GNOME/KDE Wayland、Linux 多屏/非 1 缩放和干净系统业务全链路仍是明确的未验证边界。
